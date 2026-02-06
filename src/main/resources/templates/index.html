@@ -1,0 +1,23 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8" />
+  <title>Watchlists</title>
+</head>
+<body>
+  <h1>Watchlists</h1>
+
+  <ul>
+    <li th:each="l : ${lists}">
+      <a th:href="@{'/watchlist/' + ${l.id}}" th:text="${l.name}"></a>
+    </li>
+  </ul>
+
+  <h2>Create watchlist</h2>
+  <form th:action="@{/watchlist}" method="post" th:object="${newList}">
+    <input type="text" th:field="*{name}" placeholder="Name" />
+    <button type="submit">Create</button>
+  </form>
+
+</body>
+</html>
