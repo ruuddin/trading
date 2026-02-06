@@ -71,6 +71,38 @@ Then open **http://localhost:8080/**
 - `GET /api/prices?symbols=AAPL,MSFT` — Fetch prices for symbols
 - `GET /h2-console` — H2 database console
 
+## Deploy to the Internet
+
+### Railway (Recommended - 1 Click Deploy)
+
+1. Go to [Railway.app](https://railway.app)
+2. Sign up with GitHub
+3. Click "Deploy from GitHub"
+4. Select `ruuddin/trading` repository
+5. Railway auto-detects and configures for Spring Boot
+6. Click "Deploy" → Done! 🚀
+
+**Your app will be live at:** `https://trading-<random>.railway.app`
+
+The Procfile and railway.json handle all build/deploy config automatically.
+
+### Render (Alternative)
+
+1. Go to [Render.com](https://render.com)
+2. Connect GitHub
+3. Create new Web Service
+4. Select `ruuddin/trading`
+5. Build command: `mvn clean package -DskipTests`
+6. Start command: `java -jar target/trading-0.0.1-SNAPSHOT.jar`
+7. Deploy
+
+### Local Production Build
+
+```bash
+mvn clean package -DskipTests
+java -jar target/trading-0.0.1-SNAPSHOT.jar
+```
+
 ## Tech Stack
 
 - **Backend:** Spring Boot 3.2.2, Spring Data JPA, H2 Database, WebClient
