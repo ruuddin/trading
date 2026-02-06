@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import Chart from './components/Chart';
 import PriceTicker from './components/PriceTicker';
 import WatchlistPanel from './components/WatchlistPanel';
+import AdBanner from './components/AdBanner';
 import './index.css';
 
 function App() {
@@ -47,10 +48,13 @@ function App() {
   return (
     <div className="flex h-screen bg-dark text-white">
       <Sidebar watchlists={watchlists} onSelectSymbol={setSelectedSymbol} />
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-y-auto">
+        <AdBanner slot="header-ad" />
         <PriceTicker symbol={selectedSymbol} price={prices[selectedSymbol]} />
         <Chart symbol={selectedSymbol} />
+        <AdBanner slot="middle-ad" />
         <WatchlistPanel watchlists={watchlists} prices={prices} onRefresh={fetchWatchlists} />
+        <AdBanner slot="footer-ad" />
       </div>
     </div>
   );

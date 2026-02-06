@@ -103,6 +103,33 @@ mvn clean package -DskipTests
 java -jar target/trading-0.0.1-SNAPSHOT.jar
 ```
 
+## Monetization
+
+This app is **ad-supported** with Google AdSense integration. Ads are displayed at strategic locations throughout the dashboard:
+- Header ad banner
+- Between chart and watchlist sections  
+- Footer ad banner
+
+### Setup Google AdSense
+
+1. Sign up at [Google AdSense](https://www.google.com/adsense/)
+2. Get your Publisher ID (format: `ca-pub-xxxxxxxxxxxxxxxx`)
+3. Update the following files with your Publisher ID:
+   - **`frontend/index.html`** - Replace `ca-pub-xxxxxxxxxxxxxxxx` in the AdSense script tag
+   - **`frontend/src/components/AdBanner.jsx`** - Replace `ca-pub-xxxxxxxxxxxxxxxx` in the `data-ad-client` attribute
+4. Rebuild and redeploy: `mvn clean package`
+
+### Ad Configuration
+
+You can customize ad slots in `AdBanner.jsx`:
+```jsx
+<AdBanner slot="header-ad" />    // 728x90 horizontal banner
+<AdBanner slot="middle-ad" />    // Between sections
+<AdBanner slot="footer-ad" />    // Bottom of page
+```
+
+Change ad format by modifying `data-ad-format` (e.g., `"rectangle"`, `"vertical"`, `"link"`)
+
 ## Tech Stack
 
 - **Backend:** Spring Boot 3.2.2, Spring Data JPA, H2 Database, WebClient

@@ -49,3 +49,18 @@ body {
 .stock-row:hover {
   background-color: #252f3b;
 }
+/* Ad styling */
+.ad-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100px;
+  background-color: #1a1f2e;
+  border-radius: 0.5rem;
+  border: 1px solid #2d3748;
+}
+
+.adsbygoogle {
+  display: block;
+  text-align: center;
+}
