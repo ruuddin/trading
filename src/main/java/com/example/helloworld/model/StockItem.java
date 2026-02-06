@@ -18,6 +18,12 @@ public class StockItem {
 
     public StockItem() {}
     public StockItem(String symbol) { this.symbol = symbol; }
+    public StockItem(String symbol, String displayName, BigDecimal lastPrice, Watchlist watchlist) {
+        this.symbol = symbol;
+        this.displayName = displayName;
+        this.lastPrice = lastPrice;
+        this.watchlist = watchlist;
+    }
 
     public Long getId() { return id; }
     public String getSymbol() { return symbol; }

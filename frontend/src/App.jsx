@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar';
-import Chart from './components/Chart';
-import PriceTicker from './components/PriceTicker';
-import WatchlistPanel from './components/WatchlistPanel';
+import WatchlistSidebar from './components/WatchlistSidebar';
+import ChartView from './components/ChartView';
 import AdBanner from './components/AdBanner';
 import './index.css';
 
 function App() {
   const [watchlists, setWatchlists] = useState([]);
+  const [selectedWatchlistId, setSelectedWatchlistId] = useState(null);
   const [selectedSymbol, setSelectedSymbol] = useState('AAPL');
   const [prices, setPrices] = useState({});
+  const [timeRange, setTimeRange] = useState('1d');
 
   useEffect(() => {
     fetchWatchlists();
-    const interval = setInterval(fetchPrices, 30000); // Refresh every 30s
+    const interval = setInterval(fetchPrices, 5000); // Refresh every 5 seconds
     return () => clearInterval(interval);
-  }, []);
+  }, [watchlists]);
 
   const fetchWatchlists = async () => {
     try {
@@ -23,8 +23,11 @@ function App() {
       if (!res.ok) return;
       const data = await res.json();
       setWatchlists(data);
-      if (data.length > 0 && data[0].stocks?.length > 0) {
-        setSelectedSymbol(data[0].stocks[0].symbol);
+      if (data.length > 0 && !selectedWatchlistId) {
+        setSelectedWatchlistId(data[0].id);
+        if (data[0].stocks?.length > 0) {
+          setSelectedSymbol(data[0].stocks[0].symbol);
+        }
       }
     } catch (err) {
       console.error('Error fetching watchlists:', err);
@@ -46,16 +49,33 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-dark text-white">
-      <Sidebar watchlists={watchlists} onSelectSymbol={setSelectedSymbol} />
-      <div className="flex-1 flex flex-col overflow-y-auto">
-        <AdBanner slot="header-ad" />
-        <PriceTicker symbol={selectedSymbol} price={prices[selectedSymbol]} />
-        <Chart symbol={selectedSymbol} />
-        <AdBanner slot="middle-ad" />
-        <WatchlistPanel watchlists={watchlists} prices={prices} onRefresh={fetchWatchlists} />
-        <AdBanner slot="footer-ad" />
+    <div className="flex h-screen bg-dark text-white flex-col">
+      <AdBanner slot="header-ad" />
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar - 20% */}
+        <div className="w-1/5 border-r border-gray-700 overflow-y-auto">
+          <WatchlistSidebar 
+            watchlists={watchlists} 
+            onSelectSymbol={setSelectedSymbol}
+            onSelectWatchlist={setSelectedWatchlistId}
+            selectedWatchlistId={selectedWatchlistId}
+            prices={prices}
+            onRefresh={fetchWatchlists}
+          />
+        </div>
+        
+        {/* Right Content Area - 80% */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <ChartView 
+            symbol={selectedSymbol} 
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+            price={prices[selectedSymbol]}
+          />
+          <AdBanner slot="middle-ad" />
+        </div>
       </div>
+      <AdBanner slot="footer-ad" />
     </div>
   );
 }
