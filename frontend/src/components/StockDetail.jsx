@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, Customized, Cell } from 'recharts';
 import { getLogoUrl, getInitialsBadge } from '../services/logoService';
+import FeatureGate from './FeatureGate';
+import AlertsPanel from './AlertsPanel';
+import { subscribeToQuoteStream } from '../services/quoteStream';
 
 const INTERVAL_OPTIONS = [
   { label: '1D', value: '1D', apiInterval: 'daily', maxAgeDays: 1 },
@@ -140,7 +143,7 @@ const CandlestickSeries = ({ data, offset, priceDomain }) => {
   );
 };
 
-export default function StockDetail({ symbolOverride = null }) {
+export default function StockDetail({ symbolOverride = null, planTier = 'FREE' }) {
   const { symbol } = useParams();
   const navigate = useNavigate();
   const activeSymbol = (symbolOverride || symbol || 'AAPL').toUpperCase();
@@ -155,6 +158,22 @@ export default function StockDetail({ symbolOverride = null }) {
   const [ohlcData, setOhlcData] = useState(null);
   const [chartType, setChartType] = useState('mountain');
 
+  const fetchLivePrice = async (sym) => {
+    try {
+      const response = await fetch(`/api/stocks/${sym}/price`);
+      if (!response.ok) {
+        return;
+      }
+      const data = await response.json();
+      const livePrice = Number(data?.price);
+      if (Number.isFinite(livePrice) && livePrice > 0) {
+        setStock(prev => prev ? { ...prev, price: livePrice } : prev);
+      }
+    } catch (err) {
+      console.error('Error fetching live price:', err);
+    }
+  };
+
   const applyIntervalData = (series, intervalValue) => {
     const intervalFiltered = filterChartDataByInterval(series, intervalValue);
 
@@ -165,16 +184,6 @@ export default function StockDetail({ symbolOverride = null }) {
         high: Math.max(...intervalFiltered.map(d => d.high)),
         low: Math.min(...intervalFiltered.map(d => d.low)),
         close: latest.close
-      });
-
-      setStock(prev => {
-        if (prev && (prev.price === 0 || prev.price === undefined)) {
-          return {
-            ...prev,
-            price: latest.close
-          };
-        }
-        return prev;
       });
     } else {
       setOhlcData(null);
@@ -224,13 +233,21 @@ export default function StockDetail({ symbolOverride = null }) {
       const apiInterval = selected.apiInterval;
       
       // Check cache first
-      const cacheKey = `stock_data_${sym}_${apiInterval}`;
+      const cacheKey = `stock_data_v2_${sym}_${apiInterval}`;
       const cachedData = localStorage.getItem(cacheKey);
       
       let result;
       if (cachedData) {
         console.log(`Using cached data for ${sym}`);
-        result = JSON.parse(cachedData);
+        const parsed = JSON.parse(cachedData);
+        const cachedSeries = Array.isArray(parsed?.data) ? parsed.data : [];
+        if (apiInterval === 'daily' && cachedSeries.length < 30) {
+          localStorage.removeItem(cacheKey);
+          const response = await fetch(`/api/stocks/${sym}/history?interval=${apiInterval}`);
+          result = await response.json();
+        } else {
+          result = parsed;
+        }
       } else {
         const response = await fetch(`/api/stocks/${sym}/history?interval=${apiInterval}`);
         result = await response.json();
@@ -275,6 +292,22 @@ export default function StockDetail({ symbolOverride = null }) {
     setStock(tempStock);
     setBaseSeries([]);
     setBaseSeriesApiInterval(null);
+
+    fetchLivePrice(activeSymbol);
+    const liveInterval = setInterval(() => fetchLivePrice(activeSymbol), 30000);
+    return () => clearInterval(liveInterval);
+  }, [activeSymbol]);
+
+  useEffect(() => {
+    return subscribeToQuoteStream([activeSymbol], (quotes) => {
+      const quote = quotes.find((item) => String(item?.symbol || '').toUpperCase() === activeSymbol);
+      if (!quote) return;
+
+      const livePrice = Number(quote?.price);
+      if (Number.isFinite(livePrice) && livePrice > 0) {
+        setStock((prev) => (prev ? { ...prev, price: livePrice } : prev));
+      }
+    });
   }, [activeSymbol]);
   
   useEffect(() => {
@@ -430,24 +463,60 @@ export default function StockDetail({ symbolOverride = null }) {
           ))}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          {[{ label: 'Mountain', value: 'mountain' }, { label: 'Candlestick', value: 'candlestick' }].map(type => (
+          <button
+            onClick={() => setChartType('mountain')}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: chartType === 'mountain' ? '2px solid #00d19a' : '1px solid #2a3a52',
+              background: chartType === 'mountain' ? 'rgba(0, 209, 154, 0.1)' : 'transparent',
+              color: chartType === 'mountain' ? '#00d19a' : '#9aa4b2',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '12px'
+            }}
+          >
+            Mountain
+          </button>
+
+          <FeatureGate
+            currentTier={planTier}
+            requiredTier="PRO"
+            fallback={
+              <button
+                disabled
+                title="Upgrade to Pro to use Candlestick"
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #2a3a52',
+                  background: 'transparent',
+                  color: '#67768a',
+                  cursor: 'not-allowed',
+                  fontWeight: 'bold',
+                  fontSize: '12px'
+                }}
+              >
+                Candlestick 🔒
+              </button>
+            }
+          >
             <button
-              key={type.value}
-              onClick={() => setChartType(type.value)}
+              onClick={() => setChartType('candlestick')}
               style={{
                 padding: '8px 12px',
                 borderRadius: '6px',
-                border: chartType === type.value ? '2px solid #00d19a' : '1px solid #2a3a52',
-                background: chartType === type.value ? 'rgba(0, 209, 154, 0.1)' : 'transparent',
-                color: chartType === type.value ? '#00d19a' : '#9aa4b2',
+                border: chartType === 'candlestick' ? '2px solid #00d19a' : '1px solid #2a3a52',
+                background: chartType === 'candlestick' ? 'rgba(0, 209, 154, 0.1)' : 'transparent',
+                color: chartType === 'candlestick' ? '#00d19a' : '#9aa4b2',
                 cursor: 'pointer',
                 fontWeight: 'bold',
                 fontSize: '12px'
               }}
             >
-              {type.label}
+              Candlestick
             </button>
-          ))}
+          </FeatureGate>
         </div>
       </div>
       
@@ -555,6 +624,8 @@ export default function StockDetail({ symbolOverride = null }) {
           </div>
         )}
       </div>
+
+      <AlertsPanel symbol={stock.symbol} />
       
     </div>
   );

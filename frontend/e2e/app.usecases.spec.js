@@ -114,7 +114,7 @@ test.describe('Trading app browser use cases', () => {
     page.once('dialog', (dialog) => dialog.accept(listRenamed))
     await page.getByLabel('Rename watchlist').click()
 
-    const watchlistSelect = page.locator('select')
+    const watchlistSelect = page.getByRole('combobox').first()
     await expect(watchlistSelect).toContainText(listRenamed)
 
     await createWatchlist(page, listB)
@@ -131,6 +131,16 @@ test.describe('Trading app browser use cases', () => {
   })
 
   test('symbol add/sort/remove plus invalid symbol error handling', async ({ page, request }) => {
+    await page.addInitScript(() => {
+      class DisabledWebSocket {
+        constructor() {
+          this.readyState = 3
+        }
+        close() {}
+      }
+      window.WebSocket = DisabledWebSocket
+    })
+
     await bootstrapLoginViaUI(page, request)
     await createWatchlist(page, `E2E Symbols ${Date.now()}`)
 
@@ -196,8 +206,79 @@ test.describe('Trading app browser use cases', () => {
     await page.getByRole('button', { name: '1Y' }).click()
     await expect(page.getByTestId('interval-state')).toHaveText('1Y:60')
 
-    await page.getByRole('button', { name: 'Candlestick' }).click()
+    await expect(page.getByRole('button', { name: 'Candlestick 🔒' })).toBeDisabled()
     await page.getByRole('button', { name: 'Mountain' }).click()
     await expect(page.getByRole('heading', { name: 'AAPL' })).toBeVisible()
+  })
+
+  test('pricing checkout CTA shows failure then success states', async ({ page, request }) => {
+    await bootstrapLoginViaUI(page, request)
+
+    let checkoutCalls = 0
+    await page.route('**/api/billing/checkout-session', async (route) => {
+      checkoutCalls += 1
+
+      if (checkoutCalls === 1) {
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'mock failure' })
+        })
+        return
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          username: 'pw_user',
+          requestedPlan: 'PRO',
+          status: 'NOT_CONFIGURED',
+          sessionId: 'mock_session_123',
+          checkoutUrl: '/pricing?checkout=mock&plan=PRO'
+        })
+      })
+    })
+
+    await page.goto('/pricing')
+    await expect(page.getByRole('heading', { name: 'Pricing' })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Choose Pro' }).click()
+    await expect(page.getByText('Request failed (500)')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Choose Pro' }).click()
+    await expect(page.getByText('Checkout placeholder ready:')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Open checkout URL' })).toBeVisible()
+  })
+
+  test('websocket quote stream connects and receives quote frames', async ({ page, request }) => {
+    await bootstrapLoginViaUI(page, request)
+    await createWatchlist(page, `E2E WS ${Date.now()}`)
+
+    const webSocketPromise = page.waitForEvent('websocket', {
+      predicate: (ws) => ws.url().includes('/ws/quotes')
+    })
+
+    await addSymbol(page, 'MSFT')
+    const ws = await webSocketPromise
+
+    const frameReceived = new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => reject(new Error('No quote frame received from websocket')), 15000)
+      ws.on('framereceived', (event) => {
+        try {
+          const payload = JSON.parse(event.payload)
+          if (payload?.type === 'quotes' && Array.isArray(payload?.quotes) && payload.quotes.length > 0) {
+            clearTimeout(timeoutId)
+            resolve(payload)
+          }
+        } catch {
+          // ignore non-json frames
+        }
+      })
+    })
+
+    const payload = await frameReceived
+    expect(payload.type).toBe('quotes')
+    expect(payload.quotes.length).toBeGreaterThan(0)
   })
 })

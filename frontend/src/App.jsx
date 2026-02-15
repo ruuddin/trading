@@ -4,6 +4,7 @@ import Watchlist from './components/Watchlist'
 import StockDetail from './components/StockDetail'
 import Login from './components/Login'
 import ApiUsageLegend from './components/ApiUsageLegend'
+import Pricing from './components/Pricing'
 
 export default function App() {
   const [watchlists, setWatchlists] = useState([])
@@ -11,6 +12,7 @@ export default function App() {
   const [selectedSymbol, setSelectedSymbol] = useState(null)
   const [delayedSymbol, setDelayedSymbol] = useState(null)
   const [username, setUsername] = useState(localStorage.getItem('username'))
+  const [entitlement, setEntitlement] = useState({ planTier: 'FREE', billingStatus: 'TRIAL', trialActive: true })
   const token = localStorage.getItem('token')
 
   // Fetch user's watchlists
@@ -40,6 +42,37 @@ export default function App() {
     }
 
     fetchWatchlists()
+  }, [username, token])
+
+  useEffect(() => {
+    if (!username || !token) {
+      setEntitlement({ planTier: 'FREE', billingStatus: 'TRIAL', trialActive: true })
+      return
+    }
+
+    const fetchEntitlement = async () => {
+      try {
+        const response = await fetch('/api/billing/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+
+        if (!response.ok) return
+        const data = await response.json()
+        const nextTier = typeof data?.planTier === 'string' ? data.planTier : 'FREE'
+        const nextStatus = typeof data?.billingStatus === 'string' ? data.billingStatus : 'TRIAL'
+        const nextTrialActive = typeof data?.trialActive === 'boolean' ? data.trialActive : true
+
+        setEntitlement({
+          planTier: nextTier,
+          billingStatus: nextStatus,
+          trialActive: nextTrialActive
+        })
+      } catch (err) {
+        console.error('Failed to fetch entitlement:', err)
+      }
+    }
+
+    fetchEntitlement()
   }, [username, token])
 
   function onLogin(un) {
@@ -92,6 +125,8 @@ export default function App() {
           <h1 style={{ margin: 0 }}>Trading</h1>
           <nav>
             <Link to="/">Watchlist + Stock Detail</Link>
+            {' · '}
+            <Link to="/pricing">Pricing</Link>
           </nav>
           <div style={{ marginLeft: 'auto' }}>
             {username ? <span>Signed in as {username}</span> : <Link to="/login">Login</Link>}
@@ -116,13 +151,18 @@ export default function App() {
                   />
                 </div>
                 <div style={{ flex: '1 1 90%', minWidth: 0 }}>
-                  <StockDetail key={delayedSymbol || 'AAPL'} symbolOverride={delayedSymbol || 'AAPL'} />
+                  <StockDetail
+                    key={delayedSymbol || 'AAPL'}
+                    symbolOverride={delayedSymbol || 'AAPL'}
+                    planTier={entitlement.planTier}
+                  />
                 </div>
               </div>
             } 
           />
-          <Route path="/stock/:symbol" element={<StockDetail />} />
+          <Route path="/stock/:symbol" element={<StockDetail planTier={entitlement.planTier} />} />
           <Route path="/login" element={<Login onLogin={onLogin} />} />
+          <Route path="/pricing" element={<Pricing entitlement={entitlement} />} />
         </Routes>
 
         <ApiUsageLegend />

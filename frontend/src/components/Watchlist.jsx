@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { getLogoUrl, getInitialsBadge } from '../services/logoService'
+import { subscribeToQuoteStream } from '../services/quoteStream'
 
 export default function Watchlist({ 
   watchlists, 
@@ -64,6 +65,26 @@ export default function Watchlist({
     const interval = setInterval(fetchPrices, 30000)
     return () => clearInterval(interval)
   }, [selectedWatchlist])
+
+  useEffect(() => {
+    const symbols = selectedWatchlist?.symbols || []
+    if (symbols.length === 0) {
+      return () => {}
+    }
+
+    return subscribeToQuoteStream(symbols, (quotes) => {
+      setPrices((current) => {
+        const next = { ...current }
+        for (const quote of quotes) {
+          const symbol = String(quote?.symbol || '').toUpperCase()
+          const price = Number(quote?.price)
+          if (!symbol || Number.isNaN(price)) continue
+          next[symbol] = price
+        }
+        return next
+      })
+    })
+  }, [selectedWatchlist?.id, selectedWatchlist?.symbols?.join(',')])
 
   const handleCreateWatchlist = async (e) => {
     e.preventDefault()
