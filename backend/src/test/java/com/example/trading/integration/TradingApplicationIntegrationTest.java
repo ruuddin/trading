@@ -1,7 +1,9 @@
 package com.example.trading.integration;
 
 import com.example.trading.model.Stock;
+import com.example.trading.model.PlanTier;
 import com.example.trading.model.User;
+import com.example.trading.repository.ApiKeyRepository;
 import com.example.trading.repository.UserRepository;
 import com.example.trading.repository.StockRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -42,9 +44,13 @@ class TradingApplicationIntegrationTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private ApiKeyRepository apiKeyRepository;
+
     @BeforeEach
     void setup() {
         stockRepository.deleteAll();
+        apiKeyRepository.deleteAll();
     }
 
     @Test
@@ -288,6 +294,53 @@ class TradingApplicationIntegrationTest {
                 .header("Authorization", "Bearer " + token))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$", hasSize(1)));
+    }
+
+    @Test
+    void developerApiKeyEndpointsRequirePremiumAndReturnUsage() throws Exception {
+        String freeToken = registerAndLogin("dev_free_user", "Pass123!");
+
+        mockMvc.perform(post("/api/dev/keys")
+                .header("Authorization", "Bearer " + freeToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Free Key\"}"))
+            .andExpect(status().isForbidden());
+
+        String premiumToken = registerAndLogin("dev_premium_user", "Pass123!");
+        User premiumUser = userRepository.findByUsername("dev_premium_user").orElseThrow();
+        premiumUser.setPlanTier(PlanTier.PREMIUM);
+        premiumUser.setBillingStatus("ACTIVE");
+        userRepository.save(premiumUser);
+
+        mockMvc.perform(post("/api/dev/keys")
+                .header("Authorization", "Bearer " + premiumToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Prod Key\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.name").value("Prod Key"))
+            .andExpect(jsonPath("$.apiKey").isNotEmpty())
+            .andExpect(jsonPath("$.keyPrefix").isNotEmpty())
+            .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+        mockMvc.perform(get("/api/dev/usage")
+                .header("Authorization", "Bearer " + premiumToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.summary.activeKeys").value(1))
+            .andExpect(jsonPath("$.summary.totalRequests").value(0))
+            .andExpect(jsonPath("$.keys", hasSize(1)))
+            .andExpect(jsonPath("$.keys[0].name").value("Prod Key"));
+
+        String premiumToken2 = registerAndLogin("dev_premium_user_2", "Pass123!");
+        User premiumUser2 = userRepository.findByUsername("dev_premium_user_2").orElseThrow();
+        premiumUser2.setPlanTier(PlanTier.PREMIUM);
+        premiumUser2.setBillingStatus("ACTIVE");
+        userRepository.save(premiumUser2);
+
+        mockMvc.perform(get("/api/dev/usage")
+                .header("Authorization", "Bearer " + premiumToken2))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.summary.activeKeys").value(0))
+            .andExpect(jsonPath("$.keys", hasSize(0)));
     }
 
     private String registerAndLogin(String username, String password) throws Exception {

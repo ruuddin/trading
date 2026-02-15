@@ -218,6 +218,26 @@ JSON.parse(localStorage.getItem('activation_events') || '[]')
 
 Expected: event objects with names such as `route_visited`, `watchlist_created`, `screener_run`, `screener_saved`.
 
+## 4.11 Developer API Keys + Usage (Premium)
+
+1. Ensure user is PREMIUM (billing webhook or DB fixture)
+2. Create developer API key with authenticated request
+3. Confirm response includes one-time `apiKey`, `keyPrefix`, and `status`
+4. Fetch usage and confirm summary + keys list are returned
+5. Confirm FREE users receive `403`
+
+API checks:
+
+```bash
+curl -X POST http://localhost:8080/api/dev/keys \
+  -H "Authorization: Bearer <PREMIUM_TOKEN>" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Prod Key"}'
+
+curl -H "Authorization: Bearer <PREMIUM_TOKEN>" \
+  http://localhost:8080/api/dev/usage
+```
+
 ## 5) Troubleshooting
 
 - If API changes are not visible, rebuild containers:
