@@ -387,7 +387,7 @@ public class MultiProviderStockDataFetcher {
             return false;
         }
         if ("daily".equals(interval)) {
-            return true;
+            return data.size() >= 30;
         }
         return data.size() >= 2;
     }

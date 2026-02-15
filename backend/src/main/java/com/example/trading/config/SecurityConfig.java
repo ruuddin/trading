@@ -75,7 +75,10 @@ public class SecurityConfig {
             // Authorization rules
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/api/stocks/**", "/api/metrics/**").permitAll()
+                .requestMatchers("/ws/**").permitAll()
+                .requestMatchers("/api/billing/webhook").permitAll()
                 .requestMatchers("/api/watchlists/**").authenticated()
+                .requestMatchers("/api/billing/**").authenticated()
                 .requestMatchers("/h2-console/**").permitAll()
                 .anyRequest().authenticated()
             )
