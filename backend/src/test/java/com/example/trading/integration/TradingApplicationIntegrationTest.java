@@ -231,6 +231,33 @@ class TradingApplicationIntegrationTest {
             .andExpect(jsonPath("$", hasSize(0)));
     }
 
+    @Test
+    void analyticsEndpointsReturnPortfolioSummaryAndPerformance() throws Exception {
+        String token = registerAndLogin("analytics_user", "Pass123!");
+
+        stockRepository.save(new Stock("MSFT", "Microsoft", new BigDecimal("210.00")));
+
+        mockMvc.perform(post("/api/orders")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"symbol\":\"MSFT\",\"quantity\":2,\"side\":\"BUY\"}"))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/analytics/portfolio-summary")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.marketValue").exists())
+            .andExpect(jsonPath("$.costBasis").exists())
+            .andExpect(jsonPath("$.positions").isNumber());
+
+        mockMvc.perform(get("/api/analytics/performance")
+                .param("range", "1M")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.range").value("1M"))
+            .andExpect(jsonPath("$.series").isArray());
+    }
+
     private String registerAndLogin(String username, String password) throws Exception {
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
