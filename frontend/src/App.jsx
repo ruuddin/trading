@@ -5,6 +5,7 @@ import StockDetail from './components/StockDetail'
 import Login from './components/Login'
 import ApiUsageLegend from './components/ApiUsageLegend'
 import Pricing from './components/Pricing'
+import PortfolioAnalytics from './components/PortfolioAnalytics'
 
 export default function App() {
   const [watchlists, setWatchlists] = useState([])
@@ -127,6 +128,8 @@ export default function App() {
             <Link to="/">Watchlist + Stock Detail</Link>
             {' · '}
             <Link to="/pricing">Pricing</Link>
+            {' · '}
+            <Link to="/analytics">Analytics</Link>
           </nav>
           <div style={{ marginLeft: 'auto' }}>
             {username ? <span>Signed in as {username}</span> : <Link to="/login">Login</Link>}
@@ -163,6 +166,7 @@ export default function App() {
           <Route path="/stock/:symbol" element={<StockDetail planTier={entitlement.planTier} />} />
           <Route path="/login" element={<Login onLogin={onLogin} />} />
           <Route path="/pricing" element={<Pricing entitlement={entitlement} />} />
+          <Route path="/analytics" element={<PortfolioAnalytics />} />
         </Routes>
 
         <ApiUsageLegend />
