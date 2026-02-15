@@ -29,20 +29,12 @@ class SimpleStockPriceServiceTest {
     }
 
     @Test
-    void returnsFallbackPriceForValidSymbolWhenProvidersUnavailable() {
+    void returnsNullWhenProvidersUnavailable() {
         SimpleStockPriceService service = new StubSimpleStockPriceService(null, null);
 
-        SimpleStockPriceService.StockPrice first = service.getCurrentPrice("MU");
-        SimpleStockPriceService.StockPrice second = service.getCurrentPrice("MU");
+        SimpleStockPriceService.StockPrice result = service.getCurrentPrice("MU");
 
-        assertNotNull(first);
-        assertEquals("MU", first.symbol());
-        assertTrue(first.price().compareTo(BigDecimal.ZERO) > 0);
-        assertTrue(first.high().compareTo(first.price()) > 0);
-        assertTrue(first.low().compareTo(first.price()) < 0);
-
-        // Same symbol should be served from cache and remain stable within cache window
-        assertEquals(first, second);
+        assertNull(result);
     }
 
     @Test

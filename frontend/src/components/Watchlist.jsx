@@ -30,6 +30,22 @@ export default function Watchlist({
     return `$${Number(price).toFixed(2)}`
   }
 
+  const getPriceValue = (symbol) => {
+    const entry = prices[symbol]
+    if (entry && typeof entry === 'object') {
+      return entry.price
+    }
+    return entry
+  }
+
+  const getPriceSource = (symbol) => {
+    const entry = prices[symbol]
+    if (entry && typeof entry === 'object') {
+      return String(entry.source || 'UNKNOWN').toUpperCase()
+    }
+    return 'UNKNOWN'
+  }
+
   // Fetch live prices for symbols in current watchlist
   useEffect(() => {
     if (!selectedWatchlist?.symbols || selectedWatchlist.symbols.length === 0) {
@@ -44,14 +60,17 @@ export default function Watchlist({
           try {
             const response = await fetch(`/api/stocks/${symbol}/price`)
             if (!response.ok) {
-              return [symbol, null]
+              return [symbol, { price: null, source: 'UNAVAILABLE' }]
             }
             const data = await response.json()
             const parsedPrice = Number(data?.price)
-            return [symbol, Number.isNaN(parsedPrice) ? null : parsedPrice]
+            return [symbol, {
+              price: Number.isNaN(parsedPrice) ? null : parsedPrice,
+              source: String(data?.source || 'UNKNOWN').toUpperCase()
+            }]
           } catch (err) {
             console.error(`Failed to fetch price for ${symbol}:`, err)
-            return [symbol, null]
+            return [symbol, { price: null, source: 'UNAVAILABLE' }]
           }
         })
       )
@@ -79,7 +98,7 @@ export default function Watchlist({
           const symbol = String(quote?.symbol || '').toUpperCase()
           const price = Number(quote?.price)
           if (!symbol || Number.isNaN(price)) continue
-          next[symbol] = price
+          next[symbol] = { price, source: 'LIVE' }
         }
         return next
       })
@@ -198,9 +217,9 @@ export default function Watchlist({
 
     const sorted = symbols.sort((left, right) => {
       if (sortConfig.key === 'price') {
-        const leftPrice = Number(prices[left])
-        const rightPrice = Number(prices[right])
-        const leftValid = Number.isFinite(leftPrice)
+        const rightPrice = Number(getPriceValue(right))
+        const leftNumeric = Number(getPriceValue(left))
+        const leftValid = Number.isFinite(leftNumeric)
         const rightValid = Number.isFinite(rightPrice)
 
         if (!leftValid && !rightValid) {
@@ -208,7 +227,7 @@ export default function Watchlist({
         }
         if (!leftValid) return 1
         if (!rightValid) return -1
-        return leftPrice - rightPrice
+        return leftNumeric - rightPrice
       }
 
       return left.localeCompare(right)
@@ -465,7 +484,8 @@ export default function Watchlist({
                     color: '#e6eef6'
                   }}
                 >
-                  {loading ? '-' : formatPrice(prices[symbol])}
+                  <div>{loading ? '-' : formatPrice(getPriceValue(symbol))}</div>
+                  <div style={{ fontSize: '11px', color: '#9aa4b2' }}>{getPriceSource(symbol)}</div>
                 </td>
                 <td
                   style={{

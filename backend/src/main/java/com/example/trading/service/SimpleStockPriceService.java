@@ -57,10 +57,8 @@ public class SimpleStockPriceService {
             return price;
         }
 
-        // Fallback quote for valid symbols when upstream providers are unavailable.
-        StockPrice fallback = generateFallbackQuote(upperSymbol);
-        cachePrice(upperSymbol, fallback);
-        return fallback;
+        // No synthetic pricing: return null when live providers are unavailable.
+        return null;
 
     }
         /**
@@ -176,23 +174,6 @@ public class SimpleStockPriceService {
         priceCache.put(symbol, new PriceData(price, System.currentTimeMillis()));
     }
 
-    protected StockPrice generateFallbackQuote(String symbol) {
-        int hash = Math.abs(symbol.hashCode());
-        double base = 25.0 + (hash % 475);
-        double centOffset = (hash % 100) / 100.0;
-        double price = base + centOffset;
-        double high = price * 1.02;
-        double low = price * 0.98;
-
-        return new StockPrice(
-            symbol,
-            new BigDecimal(String.format(Locale.ROOT, "%.2f", price)),
-            new BigDecimal(String.format(Locale.ROOT, "%.2f", high)),
-            new BigDecimal(String.format(Locale.ROOT, "%.2f", low)),
-            LocalDate.now().toString()
-        );
-    }
-    
     public record StockPrice(String symbol, BigDecimal price, BigDecimal high, BigDecimal low, String date) {}
 
     private record PriceData(StockPrice price, long timestamp) {

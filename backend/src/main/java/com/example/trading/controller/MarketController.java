@@ -46,17 +46,35 @@ public class MarketController {
     public ResponseEntity<?> getLivePrice(@PathVariable String symbol) {
         try {
             SimpleStockPriceService.StockPrice price = priceService.getCurrentPrice(symbol);
-            
+
             if (price == null) {
-                return ResponseEntity.status(404).body("Invalid or unsupported stock symbol: " + symbol);
+                String normalized = symbol == null ? "" : symbol.trim().toUpperCase();
+                var stockOpt = repo.findBySymbol(normalized);
+                if (stockOpt.isPresent()) {
+                    Stock stock = stockOpt.get();
+                    java.math.BigDecimal referencePrice = stock.getPrice();
+                    if (referencePrice != null) {
+                        return ResponseEntity.ok(new LivePriceResponse(
+                            normalized,
+                            referencePrice,
+                            referencePrice,
+                            referencePrice,
+                            java.time.LocalDate.now().toString(),
+                            "REFERENCE"
+                        ));
+                    }
+                }
+
+                return ResponseEntity.status(503).body("Live price unavailable for symbol: " + normalized);
             }
-            
+
             return ResponseEntity.ok(new LivePriceResponse(
                 price.symbol(),
                 price.price(),
                 price.high(),
                 price.low(),
-                price.date()
+                price.date(),
+                "LIVE"
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Error fetching price: " + e.getMessage());
@@ -74,6 +92,7 @@ public class MarketController {
         java.math.BigDecimal price,
         java.math.BigDecimal high,
         java.math.BigDecimal low,
-        String date
+        String date,
+        String source
     ) {}
 }

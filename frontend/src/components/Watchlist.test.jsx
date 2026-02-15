@@ -17,10 +17,10 @@ describe('Watchlist', () => {
   beforeEach(() => {
     global.fetch = vi.fn(async (url) => {
       if (String(url).includes('/api/stocks/MSFT/price')) {
-        return { ok: true, json: async () => ({ price: 474.24 }) }
+        return { ok: true, json: async () => ({ price: 474.24, source: 'REFERENCE' }) }
       }
       if (String(url).includes('/api/stocks/AAPL/price')) {
-        return { ok: true, json: async () => ({ price: 286.36 }) }
+        return { ok: true, json: async () => ({ price: 286.36, source: 'LIVE' }) }
       }
       return { ok: true, json: async () => ({}) }
     })
@@ -36,6 +36,8 @@ describe('Watchlist', () => {
     await waitFor(() => {
       expect(screen.getByText('$474.24')).toBeInTheDocument()
       expect(screen.getByText('$286.36')).toBeInTheDocument()
+      expect(screen.getByText('REFERENCE')).toBeInTheDocument()
+      expect(screen.getByText('LIVE')).toBeInTheDocument()
     })
 
     expect(screen.queryByText('Sort')).not.toBeInTheDocument()

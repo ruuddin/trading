@@ -164,9 +164,12 @@ class BackendApiEndToEndTest {
 
     @Test
     void publicMarketAndMetricsEndpointsRemainAccessible() throws Exception {
+        stockRepository.save(new Stock("MSFT", "Microsoft", new BigDecimal("210.00")));
+
         mockMvc.perform(get("/api/stocks/MSFT/price"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.symbol").value("MSFT"));
+            .andExpect(jsonPath("$.symbol").value("MSFT"))
+            .andExpect(jsonPath("$.source").isNotEmpty());
 
         mockMvc.perform(get("/api/stocks/MSFT/history").param("interval", "daily"))
             .andExpect(status().isOk())

@@ -105,9 +105,12 @@ class TradingApplicationIntegrationTest {
 
     @Test
     void marketAndMetricsEndpointsWork() throws Exception {
+        stockRepository.save(new Stock("MSFT", "Microsoft", new BigDecimal("210.00")));
+
         mockMvc.perform(get("/api/stocks/MSFT/price"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.symbol").value("MSFT"));
+            .andExpect(jsonPath("$.symbol").value("MSFT"))
+            .andExpect(jsonPath("$.source").isNotEmpty());
 
         mockMvc.perform(get("/api/stocks/MSFT/history").param("interval", "daily"))
             .andExpect(status().isOk())
@@ -256,6 +259,35 @@ class TradingApplicationIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.range").value("1M"))
             .andExpect(jsonPath("$.series").isArray());
+    }
+
+    @Test
+    void screenerEndpointAndSavedScansFlowWorks() throws Exception {
+        String token = registerAndLogin("screener_user", "Pass123!");
+
+        stockRepository.save(new Stock("NVDA", "NVIDIA", new BigDecimal("450.00")));
+        stockRepository.save(new Stock("AMD", "AMD", new BigDecimal("120.00")));
+
+        mockMvc.perform(get("/api/screener")
+                .param("query", "NV")
+                .param("minPrice", "100")
+                .param("maxPrice", "700")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.results").isArray())
+            .andExpect(jsonPath("$.count").isNumber());
+
+        mockMvc.perform(post("/api/screener/saved")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"AI Momentum\",\"query\":\"NV\",\"minPrice\":100,\"maxPrice\":700}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.name").value("AI Momentum"));
+
+        mockMvc.perform(get("/api/screener/saved")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(1)));
     }
 
     private String registerAndLogin(String username, String password) throws Exception {
