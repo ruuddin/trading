@@ -238,6 +238,30 @@ curl -H "Authorization: Bearer <PREMIUM_TOKEN>" \
   http://localhost:8080/api/dev/usage
 ```
 
+## 4.12 Shared Watchlists (Read-Only Share)
+
+1. Owner creates a watchlist and adds at least one symbol
+2. Owner shares it with another existing username
+3. Recipient verifies it appears in `/api/watchlists/shared`
+4. Recipient can read the shared watchlist (`GET /api/watchlists/{id}`)
+5. Recipient cannot mutate symbols/name on shared watchlist
+6. Owner revokes share and recipient no longer sees it
+
+API checks:
+
+```bash
+curl -X POST http://localhost:8080/api/watchlists/<WATCHLIST_ID>/share \
+  -H "Authorization: Bearer <OWNER_TOKEN>" \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"recipient_user"}'
+
+curl -H "Authorization: Bearer <RECIPIENT_TOKEN>" \
+  http://localhost:8080/api/watchlists/shared
+
+curl -X DELETE http://localhost:8080/api/watchlists/<WATCHLIST_ID>/share/recipient_user \
+  -H "Authorization: Bearer <OWNER_TOKEN>"
+```
+
 ## 5) Troubleshooting
 
 - If API changes are not visible, rebuild containers:

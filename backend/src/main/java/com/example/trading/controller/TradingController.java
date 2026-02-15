@@ -10,6 +10,7 @@ import com.example.trading.repository.PortfolioRepository;
 import com.example.trading.repository.StockRepository;
 import com.example.trading.repository.UserRepository;
 import com.example.trading.repository.WatchlistRepository;
+import com.example.trading.repository.WatchlistShareRepository;
 import com.example.trading.service.SimpleStockPriceService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,14 +28,16 @@ public class TradingController {
     private final OrderRepository orders;
     private final PortfolioRepository portfolios;
     private final WatchlistRepository watchlists;
+    private final WatchlistShareRepository watchlistShares;
     private final SimpleStockPriceService priceService;
 
-    public TradingController(UserRepository users, StockRepository stocks, OrderRepository orders, PortfolioRepository portfolios, WatchlistRepository watchlists, SimpleStockPriceService priceService) {
+    public TradingController(UserRepository users, StockRepository stocks, OrderRepository orders, PortfolioRepository portfolios, WatchlistRepository watchlists, WatchlistShareRepository watchlistShares, SimpleStockPriceService priceService) {
         this.users = users;
         this.stocks = stocks;
         this.orders = orders;
         this.portfolios = portfolios;
         this.watchlists = watchlists;
+        this.watchlistShares = watchlistShares;
         this.priceService = priceService;
     }
 
@@ -144,8 +147,89 @@ public class TradingController {
         if (u == null) return ResponseEntity.status(401).body("unknown user");
         
         Watchlist w = watchlists.findByIdAndUserId(id, u.getId()).orElse(null);
-        if (w == null) return ResponseEntity.status(404).body("Watchlist not found");
+        if (w == null) {
+            boolean canReadShared = watchlistShares.findByWatchlistIdAndSharedWithUserId(id, u.getId()).isPresent();
+            if (!canReadShared) return ResponseEntity.status(404).body("Watchlist not found");
+            w = watchlists.findById(id).orElse(null);
+            if (w == null) return ResponseEntity.status(404).body("Watchlist not found");
+        }
         return ResponseEntity.ok(w);
+    }
+
+    /**
+     * Share a watchlist with another user (read-only)
+     * Request body: {"username":"target_user"}
+     */
+    @PostMapping("/watchlists/{id}/share")
+    public ResponseEntity<?> shareWatchlist(java.security.Principal principal, @PathVariable Long id, @RequestBody Map<String, Object> body) {
+        if (principal == null) return ResponseEntity.status(401).body("unauthenticated");
+        String username = principal.getName();
+        User owner = users.findByUsername(username).orElse(null);
+        if (owner == null) return ResponseEntity.status(401).body("unknown user");
+
+        Watchlist w = watchlists.findByIdAndUserId(id, owner.getId()).orElse(null);
+        if (w == null) return ResponseEntity.status(404).body("Watchlist not found");
+
+        Object rawTarget = body.get("username");
+        if (!(rawTarget instanceof String targetUsername) || targetUsername.isBlank()) {
+            return ResponseEntity.status(400).body("username is required");
+        }
+
+        User target = users.findByUsername(targetUsername.trim()).orElse(null);
+        if (target == null) return ResponseEntity.status(404).body("target user not found");
+        if (target.getId().equals(owner.getId())) return ResponseEntity.status(400).body("cannot share with self");
+
+        if (watchlistShares.findByWatchlistIdAndOwnerUserIdAndSharedWithUserId(id, owner.getId(), target.getId()).isPresent()) {
+            return ResponseEntity.status(400).body("already shared");
+        }
+
+        var share = watchlistShares.save(new com.example.trading.model.WatchlistShare(id, owner.getId(), target.getId()));
+        return ResponseEntity.ok(Map.of(
+            "watchlistId", id,
+            "sharedWith", target.getUsername(),
+            "shareId", share.getId(),
+            "mode", "READ_ONLY"
+        ));
+    }
+
+    /**
+     * List watchlists shared with the current user
+     */
+    @GetMapping("/watchlists/shared")
+    public ResponseEntity<?> getSharedWatchlists(java.security.Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).body("unauthenticated");
+        String username = principal.getName();
+        User u = users.findByUsername(username).orElse(null);
+        if (u == null) return ResponseEntity.status(401).body("unknown user");
+
+        List<Watchlist> shared = watchlistShares.findBySharedWithUserId(u.getId()).stream()
+            .map(share -> watchlists.findById(share.getWatchlistId()).orElse(null))
+            .filter(java.util.Objects::nonNull)
+            .toList();
+        return ResponseEntity.ok(shared);
+    }
+
+    /**
+     * Revoke a watchlist share by target username
+     */
+    @DeleteMapping("/watchlists/{id}/share/{targetUsername}")
+    public ResponseEntity<?> revokeWatchlistShare(java.security.Principal principal, @PathVariable Long id, @PathVariable String targetUsername) {
+        if (principal == null) return ResponseEntity.status(401).body("unauthenticated");
+        String username = principal.getName();
+        User owner = users.findByUsername(username).orElse(null);
+        if (owner == null) return ResponseEntity.status(401).body("unknown user");
+
+        Watchlist w = watchlists.findByIdAndUserId(id, owner.getId()).orElse(null);
+        if (w == null) return ResponseEntity.status(404).body("Watchlist not found");
+
+        User target = users.findByUsername(targetUsername).orElse(null);
+        if (target == null) return ResponseEntity.status(404).body("target user not found");
+
+        var share = watchlistShares.findByWatchlistIdAndOwnerUserIdAndSharedWithUserId(id, owner.getId(), target.getId()).orElse(null);
+        if (share == null) return ResponseEntity.status(404).body("share not found");
+
+        watchlistShares.delete(share);
+        return ResponseEntity.ok(Map.of("deleted", true));
     }
 
     /**

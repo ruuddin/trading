@@ -82,6 +82,14 @@ class BackendApiEndToEndTest {
 
         mockMvc.perform(get("/api/dev/usage"))
             .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/watchlists/1/share")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"someone\"}"))
+            .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/watchlists/shared"))
+            .andExpect(status().isForbidden());
     }
 
     @Test

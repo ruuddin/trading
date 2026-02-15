@@ -343,6 +343,61 @@ class TradingApplicationIntegrationTest {
             .andExpect(jsonPath("$.keys", hasSize(0)));
     }
 
+    @Test
+    void sharedWatchlistReadOnlyFlowWorks() throws Exception {
+        String ownerToken = registerAndLogin("share_owner", "Pass123!");
+        String viewerToken = registerAndLogin("share_viewer", "Pass123!");
+
+        String createResponse = mockMvc.perform(post("/api/watchlists")
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Shared Core\"}"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+
+        long watchlistId = objectMapper.readTree(createResponse).path("id").asLong();
+
+        mockMvc.perform(post("/api/watchlists/" + watchlistId + "/symbols")
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"symbol\":\"MSFT\"}"))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/watchlists/" + watchlistId + "/share")
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"share_viewer\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.mode").value("READ_ONLY"));
+
+        mockMvc.perform(get("/api/watchlists/shared")
+                .header("Authorization", "Bearer " + viewerToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].name").value("Shared Core"));
+
+        mockMvc.perform(get("/api/watchlists/" + watchlistId)
+                .header("Authorization", "Bearer " + viewerToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.name").value("Shared Core"));
+
+        mockMvc.perform(post("/api/watchlists/" + watchlistId + "/symbols")
+                .header("Authorization", "Bearer " + viewerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"symbol\":\"AAPL\"}"))
+            .andExpect(status().isNotFound());
+
+        mockMvc.perform(delete("/api/watchlists/" + watchlistId + "/share/share_viewer")
+                .header("Authorization", "Bearer " + ownerToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.deleted").value(true));
+
+        mockMvc.perform(get("/api/watchlists/shared")
+                .header("Authorization", "Bearer " + viewerToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(0)));
+    }
+
     private String registerAndLogin(String username, String password) throws Exception {
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
