@@ -105,6 +105,7 @@ flowchart TD
 Detailed architecture and file-level documentation is available in:
 
 - [CODE_DOCUMENTATION.md](CODE_DOCUMENTATION.md)
+- [COMMERCIALIZATION_BACKLOG.md](COMMERCIALIZATION_BACKLOG.md)
 
 ## Sequence Diagrams (All Major Use Cases)
 
