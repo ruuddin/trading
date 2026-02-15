@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-in-.env}
+      MYSQL_DATABASE: tradingdb
+      MYSQL_INITDB_SKIP_TZINFO: "yes"
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    # Resource limits for production efficiency
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/tradingdb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-in-.env}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 2
+      JWT_SECRET: ${JWT_SECRET:-replace-with-a-very-long-secret-key-change-me}
+      # Alpha Vantage (primary, 25 requests/day free)
+      STOCK_API_KEY: ${STOCK_API_KEY:-demo}
+      SPRING_STOCK_API_KEY: ${STOCK_API_KEY:-demo}
+      # Finnhub (secondary, get free key at https://finnhub.io/)
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
+      SPRING_FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
+      # Twelve Data (tertiary, get free key at https://twelvedata.com/)
+      TWELVEDATA_API_KEY: ${TWELVEDATA_API_KEY:-}
+      SPRING_TWELVEDATA_API_KEY: ${TWELVEDATA_API_KEY:-}
+      # Massive (quaternary, high volume API)
+      MASSIVE_API_KEY: ${MASSIVE_API_KEY:-}
+      SPRING_MASSIVE_API_KEY: ${MASSIVE_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 256M
+        reservations:
+          cpus: '0.5'
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 2s
+      retries: 2
+      start_period: 5s
+
+volumes:
+  db_data:
+    driver: local
+
