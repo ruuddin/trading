@@ -149,9 +149,39 @@ export default function StockDetail({ symbolOverride = null }) {
   const [stock, setStock] = useState(null);
   const [timeInterval, setTimeInterval] = useState('1M');
   const [chartData, setChartData] = useState([]);
+  const [baseSeries, setBaseSeries] = useState([]);
+  const [baseSeriesApiInterval, setBaseSeriesApiInterval] = useState(null);
   const [loading, setLoading] = useState(false);
   const [ohlcData, setOhlcData] = useState(null);
   const [chartType, setChartType] = useState('mountain');
+
+  const applyIntervalData = (series, intervalValue) => {
+    const intervalFiltered = filterChartDataByInterval(series, intervalValue);
+
+    if (intervalFiltered.length > 0) {
+      const latest = intervalFiltered[intervalFiltered.length - 1];
+      setOhlcData({
+        open: latest.open,
+        high: Math.max(...intervalFiltered.map(d => d.high)),
+        low: Math.min(...intervalFiltered.map(d => d.low)),
+        close: latest.close
+      });
+
+      setStock(prev => {
+        if (prev && (prev.price === 0 || prev.price === undefined)) {
+          return {
+            ...prev,
+            price: latest.close
+          };
+        }
+        return prev;
+      });
+    } else {
+      setOhlcData(null);
+    }
+
+    setChartData(intervalFiltered);
+  };
 
   const renderCandlestickLayer = (chartProps) => (
     <CandlestickSeries
@@ -221,37 +251,14 @@ export default function StockDetail({ symbolOverride = null }) {
         volume: buildSyntheticVolume(item.timestamp, idx, parseFloat(item.close), parseFloat(item.open))
       })).reverse(); // Reverse to show oldest first
 
-      const intervalFiltered = filterChartDataByInterval(formatted, intervalValue);
-      
-      // Get latest data for OHLC display
-      if (intervalFiltered.length > 0) {
-        const latest = intervalFiltered[intervalFiltered.length - 1];
-        setOhlcData({
-          open: latest.open,
-          high: Math.max(...intervalFiltered.map(d => d.high)),
-          low: Math.min(...intervalFiltered.map(d => d.low)),
-          close: latest.close
-        });
-        
-        // Update stock price if it's 0 (for newly searched symbols)
-        setStock(prev => {
-          if (prev && (prev.price === 0 || prev.price === undefined)) {
-            return {
-              ...prev,
-              price: latest.close
-            };
-          }
-          return prev;
-        });
-      } else {
-        console.warn(`No data available for ${sym}`);
-        setOhlcData(null);
-      }
-      
-      setChartData(intervalFiltered);
+      setBaseSeries(formatted);
+      setBaseSeriesApiInterval(apiInterval);
+      applyIntervalData(formatted, intervalValue);
     } catch (err) {
       console.error('Error fetching data:', err);
       setChartData([]);
+      setBaseSeries([]);
+      setBaseSeriesApiInterval(null);
       setOhlcData(null);
     } finally {
       setLoading(false);
@@ -266,13 +273,21 @@ export default function StockDetail({ symbolOverride = null }) {
       id: `stock-${activeSymbol}`
     };
     setStock(tempStock);
+    setBaseSeries([]);
+    setBaseSeriesApiInterval(null);
   }, [activeSymbol]);
   
   useEffect(() => {
-    if (stock) {
-      fetchHistoricalData(stock.symbol, timeInterval);
+    if (!stock) return;
+
+    const selected = INTERVAL_OPTIONS.find((option) => option.value === timeInterval) || INTERVAL_OPTIONS[2];
+    if (baseSeries.length > 0 && baseSeriesApiInterval === selected.apiInterval) {
+      applyIntervalData(baseSeries, timeInterval);
+      return;
     }
-  }, [stock, timeInterval]);
+
+    fetchHistoricalData(stock.symbol, timeInterval);
+  }, [stock, timeInterval, baseSeries, baseSeriesApiInterval]);
   
   if (!stock) return <div style={{ color: '#e6eef6', textAlign: 'center', padding: '40px' }}>Loading...</div>;
 
