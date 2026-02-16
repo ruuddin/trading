@@ -272,6 +272,20 @@ curl -X DELETE http://localhost:8080/api/watchlists/<WATCHLIST_ID>/share/recipie
   -H "Authorization: Bearer <OWNER_TOKEN>"
 ```
 
+## 4.13 Audit Logs
+
+1. Sign in and perform actions (e.g., create watchlist, place order)
+2. Fetch `/api/audit` with same authenticated user
+3. Confirm events are present with matching `actorUsername`
+4. Confirm unauthenticated `/api/audit` returns forbidden/unauthorized
+
+API checks:
+
+```bash
+curl -H "Authorization: Bearer <TOKEN>" \
+  http://localhost:8080/api/audit
+```
+
 ## 5) Troubleshooting
 
 - If API changes are not visible, rebuild containers:

@@ -398,6 +398,30 @@ class TradingApplicationIntegrationTest {
             .andExpect(jsonPath("$", hasSize(0)));
     }
 
+    @Test
+    void auditEndpointReturnsAuthenticatedUsersEventsOnly() throws Exception {
+        String token = registerAndLogin("audit_user", "Pass123!");
+
+        mockMvc.perform(post("/api/watchlists")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Audit List\"}"))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/audit")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(org.hamcrest.Matchers.greaterThanOrEqualTo(1))))
+            .andExpect(jsonPath("$[0].actorUsername").value("audit_user"));
+
+        String tokenOther = registerAndLogin("audit_other_user", "Pass123!");
+
+        mockMvc.perform(get("/api/audit")
+                .header("Authorization", "Bearer " + tokenOther))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].actorUsername").value("audit_other_user"));
+    }
+
     private String registerAndLogin(String username, String password) throws Exception {
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

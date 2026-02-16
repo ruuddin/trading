@@ -3,6 +3,7 @@ package com.example.trading.controller;
 import com.example.trading.model.User;
 import com.example.trading.repository.UserRepository;
 import com.example.trading.security.JwtUtil;
+import com.example.trading.service.AuditLogService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,11 +21,13 @@ public class AuthController {
     private final UserRepository users;
     private final PasswordEncoder encoder;
     private final JwtUtil jwtUtil;
+    private final AuditLogService auditLogService;
 
-    public AuthController(UserRepository users, PasswordEncoder encoder, JwtUtil jwtUtil) {
+    public AuthController(UserRepository users, PasswordEncoder encoder, JwtUtil jwtUtil, AuditLogService auditLogService) {
         this.users = users;
         this.encoder = encoder;
         this.jwtUtil = jwtUtil;
+        this.auditLogService = auditLogService;
     }
 
     @PostMapping("/register")
@@ -35,6 +38,7 @@ public class AuthController {
         if (users.findByUsername(username).isPresent()) return ResponseEntity.status(409).body("user exists");
         User u = new User(username, encoder.encode(password));
         users.save(u);
+        auditLogService.record(username, "AUTH_REGISTER", "USER", username, "User registration completed");
         return ResponseEntity.ok(Map.of("username", username));
     }
 
@@ -47,6 +51,7 @@ public class AuthController {
         if (userOpt.isEmpty()) return ResponseEntity.status(401).body("invalid credentials");
         var user = userOpt.get();
         if (!encoder.matches(password, user.getPasswordHash())) return ResponseEntity.status(401).body("invalid credentials");
+        auditLogService.record(user.getUsername(), "AUTH_LOGIN", "USER", user.getUsername(), "User login succeeded");
         Map<String,String> result = Collections.singletonMap("token", jwtUtil.generateToken(user.getUsername()));
         return ResponseEntity.ok(result);
     }

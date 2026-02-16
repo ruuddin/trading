@@ -90,6 +90,9 @@ class BackendApiEndToEndTest {
 
         mockMvc.perform(get("/api/watchlists/shared"))
             .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/audit"))
+            .andExpect(status().isForbidden());
     }
 
     @Test

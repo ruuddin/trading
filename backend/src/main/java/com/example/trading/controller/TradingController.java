@@ -11,6 +11,7 @@ import com.example.trading.repository.StockRepository;
 import com.example.trading.repository.UserRepository;
 import com.example.trading.repository.WatchlistRepository;
 import com.example.trading.repository.WatchlistShareRepository;
+import com.example.trading.service.AuditLogService;
 import com.example.trading.service.SimpleStockPriceService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,15 +30,17 @@ public class TradingController {
     private final PortfolioRepository portfolios;
     private final WatchlistRepository watchlists;
     private final WatchlistShareRepository watchlistShares;
+    private final AuditLogService auditLogService;
     private final SimpleStockPriceService priceService;
 
-    public TradingController(UserRepository users, StockRepository stocks, OrderRepository orders, PortfolioRepository portfolios, WatchlistRepository watchlists, WatchlistShareRepository watchlistShares, SimpleStockPriceService priceService) {
+    public TradingController(UserRepository users, StockRepository stocks, OrderRepository orders, PortfolioRepository portfolios, WatchlistRepository watchlists, WatchlistShareRepository watchlistShares, AuditLogService auditLogService, SimpleStockPriceService priceService) {
         this.users = users;
         this.stocks = stocks;
         this.orders = orders;
         this.portfolios = portfolios;
         this.watchlists = watchlists;
         this.watchlistShares = watchlistShares;
+        this.auditLogService = auditLogService;
         this.priceService = priceService;
     }
 
@@ -56,6 +59,7 @@ public class TradingController {
 
         Order o = new Order(u.getId(), symbol, qty, price, side, "FILLED");
         orders.save(o);
+        auditLogService.record(u.getUsername(), "ORDER_CREATE", "ORDER", String.valueOf(o.getId()), side + " " + qty + " " + symbol);
 
         // naive portfolio update
         List<Portfolio> pList = portfolios.findByUserId(u.getId());
@@ -133,6 +137,7 @@ public class TradingController {
         
         Watchlist w = new Watchlist(u.getId(), name.trim());
         Watchlist saved = watchlists.save(w);
+        auditLogService.record(u.getUsername(), "WATCHLIST_CREATE", "WATCHLIST", String.valueOf(saved.getId()), saved.getName());
         return ResponseEntity.ok(saved);
     }
 
@@ -184,6 +189,7 @@ public class TradingController {
         }
 
         var share = watchlistShares.save(new com.example.trading.model.WatchlistShare(id, owner.getId(), target.getId()));
+        auditLogService.record(owner.getUsername(), "WATCHLIST_SHARE_CREATE", "WATCHLIST", String.valueOf(id), "shared with " + target.getUsername());
         return ResponseEntity.ok(Map.of(
             "watchlistId", id,
             "sharedWith", target.getUsername(),
@@ -229,6 +235,7 @@ public class TradingController {
         if (share == null) return ResponseEntity.status(404).body("share not found");
 
         watchlistShares.delete(share);
+        auditLogService.record(owner.getUsername(), "WATCHLIST_SHARE_REVOKE", "WATCHLIST", String.valueOf(id), "revoked for " + target.getUsername());
         return ResponseEntity.ok(Map.of("deleted", true));
     }
 
