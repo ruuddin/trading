@@ -323,6 +323,18 @@ curl -X POST http://localhost:8080/api/auth/2fa/enable \
   -d '{"code":"<VERIFICATION_CODE>"}'
 ```
 
+## 4.16 Public Route Rate Limiting
+
+1. Hit a public endpoint repeatedly (e.g., `/api/metrics/summary`)
+2. Confirm responses eventually switch to `429 Too Many Requests`
+3. Wait for window reset and confirm requests succeed again
+
+API check:
+
+```bash
+for i in {1..20}; do curl -i http://localhost:8080/api/metrics/summary; done
+```
+
 ## 5) Troubleshooting
 
 - If API changes are not visible, rebuild containers:

@@ -1,6 +1,7 @@
 package com.example.trading.config;
 
 import com.example.trading.security.JwtFilter;
+import com.example.trading.security.PublicRouteRateLimitFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -32,9 +33,11 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
+    private final PublicRouteRateLimitFilter publicRouteRateLimitFilter;
 
-    public SecurityConfig(JwtFilter jwtFilter) {
+    public SecurityConfig(JwtFilter jwtFilter, PublicRouteRateLimitFilter publicRouteRateLimitFilter) {
         this.jwtFilter = jwtFilter;
+        this.publicRouteRateLimitFilter = publicRouteRateLimitFilter;
     }
 
     @Bean
@@ -69,7 +72,8 @@ public class SecurityConfig {
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             
-            // Add JWT filter before username/password authentication
+            // Add security filters before username/password authentication
+            .addFilterBefore(publicRouteRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
             
             // Authorization rules

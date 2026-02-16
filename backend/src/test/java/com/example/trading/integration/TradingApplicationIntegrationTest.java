@@ -6,6 +6,7 @@ import com.example.trading.model.User;
 import com.example.trading.repository.ApiKeyRepository;
 import com.example.trading.repository.UserRepository;
 import com.example.trading.repository.StockRepository;
+import com.example.trading.service.PublicRateLimiterService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,10 +48,14 @@ class TradingApplicationIntegrationTest {
     @Autowired
     private ApiKeyRepository apiKeyRepository;
 
+    @Autowired
+    private PublicRateLimiterService publicRateLimiterService;
+
     @BeforeEach
     void setup() {
         stockRepository.deleteAll();
         apiKeyRepository.deleteAll();
+        publicRateLimiterService.resetAll();
     }
 
     @Test
@@ -503,6 +508,17 @@ class TradingApplicationIntegrationTest {
                 .content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.token").isNotEmpty());
+    }
+
+    @Test
+    void publicRouteRateLimitReturnsTooManyRequests() throws Exception {
+        for (int i = 0; i < 8; i++) {
+            mockMvc.perform(get("/api/metrics/summary"))
+                .andExpect(status().isOk());
+        }
+
+        mockMvc.perform(get("/api/metrics/summary"))
+            .andExpect(status().isTooManyRequests());
     }
 
     private String registerAndLogin(String username, String password) throws Exception {

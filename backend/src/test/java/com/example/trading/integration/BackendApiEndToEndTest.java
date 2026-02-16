@@ -6,6 +6,7 @@ import com.example.trading.repository.PortfolioRepository;
 import com.example.trading.repository.StockRepository;
 import com.example.trading.repository.UserRepository;
 import com.example.trading.repository.WatchlistRepository;
+import com.example.trading.service.PublicRateLimiterService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +54,9 @@ class BackendApiEndToEndTest {
     @Autowired
     private PortfolioRepository portfolioRepository;
 
+    @Autowired
+    private PublicRateLimiterService publicRateLimiterService;
+
     @BeforeEach
     void resetState() {
         orderRepository.deleteAll();
@@ -60,6 +64,7 @@ class BackendApiEndToEndTest {
         watchlistRepository.deleteAll();
         stockRepository.deleteAll();
         userRepository.deleteAll();
+        publicRateLimiterService.resetAll();
     }
 
     @Test
