@@ -52,7 +52,22 @@ public class AuthController {
         var user = userOpt.get();
         if (!encoder.matches(password, user.getPasswordHash())) return ResponseEntity.status(401).body("invalid credentials");
         auditLogService.record(user.getUsername(), "AUTH_LOGIN", "USER", user.getUsername(), "User login succeeded");
-        Map<String,String> result = Collections.singletonMap("token", jwtUtil.generateToken(user.getUsername()));
+        Map<String,String> result = Collections.singletonMap("token", jwtUtil.generateToken(user.getUsername(), user.getTokenVersion()));
         return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/sessions/revoke")
+    public ResponseEntity<?> revokeAllSessions(java.security.Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).body("unauthenticated");
+
+        var userOpt = users.findByUsername(principal.getName());
+        if (userOpt.isEmpty()) return ResponseEntity.status(401).body("unknown user");
+
+        var user = userOpt.get();
+        user.setTokenVersion(user.getTokenVersion() + 1);
+        users.save(user);
+
+        auditLogService.record(user.getUsername(), "AUTH_SESSIONS_REVOKE", "USER", user.getUsername(), "All sessions revoked");
+        return ResponseEntity.ok(Map.of("revoked", true));
     }
 }

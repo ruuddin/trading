@@ -286,6 +286,23 @@ curl -H "Authorization: Bearer <TOKEN>" \
   http://localhost:8080/api/audit
 ```
 
+## 4.14 Session Revocation
+
+1. Login and capture token A
+2. Call `POST /api/auth/sessions/revoke` with token A
+3. Confirm old token A can no longer access protected APIs
+4. Login again to obtain token B and confirm protected APIs work
+
+API checks:
+
+```bash
+curl -X POST http://localhost:8080/api/auth/sessions/revoke \
+  -H "Authorization: Bearer <TOKEN_A>"
+
+curl -H "Authorization: Bearer <TOKEN_A>" \
+  http://localhost:8080/api/watchlists
+```
+
 ## 5) Troubleshooting
 
 - If API changes are not visible, rebuild containers:

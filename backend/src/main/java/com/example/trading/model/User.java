@@ -22,6 +22,7 @@ public class User {
     private PlanTier planTier;
     private LocalDateTime trialEndsAt;
     private String billingStatus;
+    private Integer tokenVersion;
 
     public User() {}
 
@@ -31,6 +32,7 @@ public class User {
         this.planTier = PlanTier.FREE;
         this.trialEndsAt = LocalDateTime.now().plusDays(14);
         this.billingStatus = "TRIAL";
+        this.tokenVersion = 0;
     }
 
     public Long getId() { return id; }
@@ -39,8 +41,10 @@ public class User {
     public PlanTier getPlanTier() { return planTier; }
     public LocalDateTime getTrialEndsAt() { return trialEndsAt; }
     public String getBillingStatus() { return billingStatus; }
+    public Integer getTokenVersion() { return tokenVersion == null ? 0 : tokenVersion; }
 
     public void setPlanTier(PlanTier planTier) { this.planTier = planTier; }
     public void setTrialEndsAt(LocalDateTime trialEndsAt) { this.trialEndsAt = trialEndsAt; }
     public void setBillingStatus(String billingStatus) { this.billingStatus = billingStatus; }
+    public void setTokenVersion(Integer tokenVersion) { this.tokenVersion = tokenVersion; }
 }

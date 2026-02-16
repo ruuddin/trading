@@ -93,6 +93,9 @@ class BackendApiEndToEndTest {
 
         mockMvc.perform(get("/api/audit"))
             .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/auth/sessions/revoke"))
+            .andExpect(status().isUnauthorized());
     }
 
     @Test

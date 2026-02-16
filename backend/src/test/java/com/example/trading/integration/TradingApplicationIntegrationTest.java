@@ -422,6 +422,39 @@ class TradingApplicationIntegrationTest {
             .andExpect(jsonPath("$[0].actorUsername").value("audit_other_user"));
     }
 
+    @Test
+    void revokeSessionsInvalidatesOldTokenAndRequiresFreshLogin() throws Exception {
+        String username = "session_user";
+        String password = "Pass123!";
+
+        String token = registerAndLogin(username, password);
+
+        mockMvc.perform(get("/api/watchlists")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/auth/sessions/revoke")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.revoked").value(true));
+
+        mockMvc.perform(get("/api/watchlists")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isForbidden());
+
+        String loginResponse = mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+
+        String refreshedToken = objectMapper.readTree(loginResponse).path("token").asText();
+
+        mockMvc.perform(get("/api/watchlists")
+                .header("Authorization", "Bearer " + refreshedToken))
+            .andExpect(status().isOk());
+    }
+
     private String registerAndLogin(String username, String password) throws Exception {
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

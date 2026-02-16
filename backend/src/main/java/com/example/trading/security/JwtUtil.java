@@ -19,9 +19,14 @@ public class JwtUtil {
     }
 
     public String generateToken(String username) {
+        return generateToken(username, 0);
+    }
+
+    public String generateToken(String username, int tokenVersion) {
         long now = System.currentTimeMillis();
         return Jwts.builder()
                 .subject(username)
+                .claim("tv", tokenVersion)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + 1000L * 60 * 60 * 24 * 7)) // 7 days
                 .signWith(key)
@@ -42,6 +47,15 @@ public class JwtUtil {
             return true;
         } catch (JwtException e) {
             return false;
+        }
+    }
+
+    public int getTokenVersion(String token) {
+        try {
+            Integer version = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload().get("tv", Integer.class);
+            return version == null ? 0 : version;
+        } catch (JwtException e) {
+            return 0;
         }
     }
 }
