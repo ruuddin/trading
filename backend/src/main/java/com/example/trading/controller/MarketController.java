@@ -3,7 +3,7 @@ package com.example.trading.controller;
 import com.example.trading.model.Stock;
 import com.example.trading.repository.StockRepository;
 import com.example.trading.service.MultiProviderStockDataFetcher;
-import com.example.trading.service.SimpleStockPriceService;
+import com.example.trading.service.QuoteResolutionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,12 +15,12 @@ public class MarketController {
 
     private final StockRepository repo;
     private final MultiProviderStockDataFetcher fetcher;
-    private final SimpleStockPriceService priceService;
+    private final QuoteResolutionService quoteResolutionService;
 
-    public MarketController(StockRepository repo, MultiProviderStockDataFetcher fetcher, SimpleStockPriceService priceService) {
+    public MarketController(StockRepository repo, MultiProviderStockDataFetcher fetcher, QuoteResolutionService quoteResolutionService) {
         this.repo = repo;
         this.fetcher = fetcher;
-        this.priceService = priceService;
+        this.quoteResolutionService = quoteResolutionService;
     }
 
     @GetMapping
@@ -45,36 +45,19 @@ public class MarketController {
     @GetMapping("/{symbol}/price")
     public ResponseEntity<?> getLivePrice(@PathVariable String symbol) {
         try {
-            SimpleStockPriceService.StockPrice price = priceService.getCurrentPrice(symbol);
-
-            if (price == null) {
+            QuoteResolutionService.ResolvedQuote quote = quoteResolutionService.resolve(symbol);
+            if (quote == null) {
                 String normalized = symbol == null ? "" : symbol.trim().toUpperCase();
-                var stockOpt = repo.findBySymbol(normalized);
-                if (stockOpt.isPresent()) {
-                    Stock stock = stockOpt.get();
-                    java.math.BigDecimal referencePrice = stock.getPrice();
-                    if (referencePrice != null) {
-                        return ResponseEntity.ok(new LivePriceResponse(
-                            normalized,
-                            referencePrice,
-                            referencePrice,
-                            referencePrice,
-                            java.time.LocalDate.now().toString(),
-                            "REFERENCE"
-                        ));
-                    }
-                }
-
                 return ResponseEntity.status(503).body("Live price unavailable for symbol: " + normalized);
             }
 
             return ResponseEntity.ok(new LivePriceResponse(
-                price.symbol(),
-                price.price(),
-                price.high(),
-                price.low(),
-                price.date(),
-                "LIVE"
+                quote.symbol(),
+                quote.price(),
+                quote.high(),
+                quote.low(),
+                quote.date(),
+                quote.source()
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Error fetching price: " + e.getMessage());

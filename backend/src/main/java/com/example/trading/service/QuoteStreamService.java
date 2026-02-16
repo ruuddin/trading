@@ -26,14 +26,16 @@ import java.util.concurrent.TimeUnit;
 public class QuoteStreamService extends TextWebSocketHandler {
 
     private final SimpleStockPriceService priceService;
+    private final QuoteResolutionService quoteResolutionService;
     private final ObjectMapper objectMapper;
 
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
     private final Map<String, Set<String>> subscriptions = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
-    public QuoteStreamService(SimpleStockPriceService priceService, ObjectMapper objectMapper) {
+    public QuoteStreamService(SimpleStockPriceService priceService, QuoteResolutionService quoteResolutionService, ObjectMapper objectMapper) {
         this.priceService = priceService;
+        this.quoteResolutionService = quoteResolutionService;
         this.objectMapper = objectMapper;
     }
 
@@ -123,7 +125,7 @@ public class QuoteStreamService extends TextWebSocketHandler {
         List<Map<String, Object>> quotes = new ArrayList<>();
 
         for (String symbol : symbols) {
-            SimpleStockPriceService.StockPrice quote = priceService.getCurrentPrice(symbol);
+            QuoteResolutionService.ResolvedQuote quote = quoteResolutionService.resolve(symbol);
             if (quote == null) {
                 continue;
             }
@@ -134,6 +136,7 @@ public class QuoteStreamService extends TextWebSocketHandler {
                 "high", quote.high(),
                 "low", quote.low(),
                 "date", quote.date(),
+                "source", quote.source(),
                 "timestamp", Instant.now().toString()
             ));
         }

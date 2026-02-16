@@ -98,7 +98,10 @@ export default function Watchlist({
           const symbol = String(quote?.symbol || '').toUpperCase()
           const price = Number(quote?.price)
           if (!symbol || Number.isNaN(price)) continue
-          next[symbol] = { price, source: 'LIVE' }
+          next[symbol] = {
+            price,
+            source: String(quote?.source || 'LIVE').toUpperCase()
+          }
         }
         return next
       })

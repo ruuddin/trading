@@ -70,6 +70,13 @@ cd frontend
 npx playwright test
 ```
 
+### Frontend parity E2E (real backend, no stock API mocks)
+
+```bash
+cd frontend
+npx playwright test e2e/watchlist.detail.parity.spec.js
+```
+
 ## 4) Manual feature verification
 
 ## 4.1 Auth + JWT

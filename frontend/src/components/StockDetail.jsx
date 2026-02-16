@@ -157,6 +157,7 @@ export default function StockDetail({ symbolOverride = null, planTier = 'FREE' }
   const [loading, setLoading] = useState(false);
   const [ohlcData, setOhlcData] = useState(null);
   const [chartType, setChartType] = useState('mountain');
+  const [priceSource, setPriceSource] = useState('UNKNOWN');
   const activeSymbolRef = useRef(activeSymbol);
   const latestHistoryRequestRef = useRef('');
 
@@ -174,6 +175,7 @@ export default function StockDetail({ symbolOverride = null, planTier = 'FREE' }
       const data = await response.json();
       const livePrice = Number(data?.price);
       if (Number.isFinite(livePrice) && livePrice > 0) {
+        setPriceSource(String(data?.source || 'LIVE').toUpperCase());
         setStock((prev) => {
           if (!prev) return prev;
           if (prev.symbol !== normalizedSymbol) return prev;
@@ -314,6 +316,7 @@ export default function StockDetail({ symbolOverride = null, planTier = 'FREE' }
       id: `stock-${activeSymbol}`
     };
     setStock(tempStock);
+    setPriceSource('UNKNOWN');
     setBaseSeries([]);
     setBaseSeriesApiInterval(null);
 
@@ -329,6 +332,7 @@ export default function StockDetail({ symbolOverride = null, planTier = 'FREE' }
 
       const livePrice = Number(quote?.price);
       if (Number.isFinite(livePrice) && livePrice > 0) {
+        setPriceSource(String(quote?.source || 'LIVE').toUpperCase());
         setStock((prev) => (prev ? { ...prev, price: livePrice } : prev));
       }
     });
@@ -422,7 +426,7 @@ export default function StockDetail({ symbolOverride = null, planTier = 'FREE' }
           </div>
           
           <div style={{ fontSize: '12px', color: '#9aa4b2' }}>
-            Vol {chartData.length > 0 ? (chartData[chartData.length - 1].volume / 1000000).toFixed(2) : 0}M
+            Vol {chartData.length > 0 ? (chartData[chartData.length - 1].volume / 1000000).toFixed(2) : 0}M • Source {priceSource}
           </div>
         </div>
         
