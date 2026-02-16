@@ -96,6 +96,17 @@ class BackendApiEndToEndTest {
 
         mockMvc.perform(post("/api/auth/sessions/revoke"))
             .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/auth/2fa/setup"))
+            .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/auth/2fa/enable")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"123456\"}"))
+            .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/auth/2fa/disable"))
+            .andExpect(status().isUnauthorized());
     }
 
     @Test

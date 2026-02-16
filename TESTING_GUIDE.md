@@ -303,6 +303,26 @@ curl -H "Authorization: Bearer <TOKEN_A>" \
   http://localhost:8080/api/watchlists
 ```
 
+## 4.15 Two-Factor Authentication (2FA)
+
+1. Login and call `POST /api/auth/2fa/setup` to get `secret` and temporary `verificationCode`
+2. Enable 2FA via `POST /api/auth/2fa/enable` with the returned code
+3. Verify login without `twoFactorCode` fails
+4. Verify login with valid `twoFactorCode` succeeds
+5. Optionally disable via `POST /api/auth/2fa/disable`
+
+API checks:
+
+```bash
+curl -X POST http://localhost:8080/api/auth/2fa/setup \
+  -H "Authorization: Bearer <TOKEN>"
+
+curl -X POST http://localhost:8080/api/auth/2fa/enable \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"<VERIFICATION_CODE>"}'
+```
+
 ## 5) Troubleshooting
 
 - If API changes are not visible, rebuild containers:

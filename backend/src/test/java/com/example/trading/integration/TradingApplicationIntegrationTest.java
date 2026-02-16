@@ -455,6 +455,56 @@ class TradingApplicationIntegrationTest {
             .andExpect(status().isOk());
     }
 
+    @Test
+    void twoFactorSetupEnableAndLoginFlowWorks() throws Exception {
+        String username = "twofactor_user";
+        String password = "Pass123!";
+
+        String token = registerAndLogin(username, password);
+
+        String setupResponse = mockMvc.perform(post("/api/auth/2fa/setup")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.twoFactorEnabled").value(false))
+            .andExpect(jsonPath("$.secret").isNotEmpty())
+            .andExpect(jsonPath("$.verificationCode").isNotEmpty())
+            .andReturn().getResponse().getContentAsString();
+
+        String code = objectMapper.readTree(setupResponse).path("verificationCode").asText();
+
+        mockMvc.perform(post("/api/auth/2fa/enable")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"" + code + "\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.twoFactorEnabled").value(true));
+
+        mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"))
+            .andExpect(status().isUnauthorized());
+
+        String with2faResponse = mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\",\"twoFactorCode\":\"" + code + "\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.token").isNotEmpty())
+            .andReturn().getResponse().getContentAsString();
+
+        String token2 = objectMapper.readTree(with2faResponse).path("token").asText();
+
+        mockMvc.perform(post("/api/auth/2fa/disable")
+                .header("Authorization", "Bearer " + token2))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.twoFactorEnabled").value(false));
+
+        mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.token").isNotEmpty());
+    }
+
     private String registerAndLogin(String username, String password) throws Exception {
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

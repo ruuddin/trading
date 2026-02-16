@@ -23,6 +23,8 @@ public class User {
     private LocalDateTime trialEndsAt;
     private String billingStatus;
     private Integer tokenVersion;
+    private Boolean twoFactorEnabled;
+    private String twoFactorSecret;
 
     public User() {}
 
@@ -33,6 +35,7 @@ public class User {
         this.trialEndsAt = LocalDateTime.now().plusDays(14);
         this.billingStatus = "TRIAL";
         this.tokenVersion = 0;
+        this.twoFactorEnabled = false;
     }
 
     public Long getId() { return id; }
@@ -42,9 +45,13 @@ public class User {
     public LocalDateTime getTrialEndsAt() { return trialEndsAt; }
     public String getBillingStatus() { return billingStatus; }
     public Integer getTokenVersion() { return tokenVersion == null ? 0 : tokenVersion; }
+    public Boolean getTwoFactorEnabled() { return twoFactorEnabled != null && twoFactorEnabled; }
+    public String getTwoFactorSecret() { return twoFactorSecret; }
 
     public void setPlanTier(PlanTier planTier) { this.planTier = planTier; }
     public void setTrialEndsAt(LocalDateTime trialEndsAt) { this.trialEndsAt = trialEndsAt; }
     public void setBillingStatus(String billingStatus) { this.billingStatus = billingStatus; }
     public void setTokenVersion(Integer tokenVersion) { this.tokenVersion = tokenVersion; }
+    public void setTwoFactorEnabled(Boolean twoFactorEnabled) { this.twoFactorEnabled = twoFactorEnabled; }
+    public void setTwoFactorSecret(String twoFactorSecret) { this.twoFactorSecret = twoFactorSecret; }
 }
