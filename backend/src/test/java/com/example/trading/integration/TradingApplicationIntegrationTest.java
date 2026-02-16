@@ -131,6 +131,13 @@ class TradingApplicationIntegrationTest {
         mockMvc.perform(get("/api/metrics/summary"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.providers").exists());
+
+        mockMvc.perform(get("/api/metrics/circuit-breakers"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.ALPHA_VANTAGE.open").isBoolean())
+            .andExpect(jsonPath("$.FINNHUB.open").isBoolean())
+            .andExpect(jsonPath("$.TWELVEDATA.open").isBoolean())
+            .andExpect(jsonPath("$.MASSIVE.open").isBoolean());
     }
 
     @Test

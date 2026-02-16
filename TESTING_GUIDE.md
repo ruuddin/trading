@@ -335,6 +335,18 @@ API check:
 for i in {1..20}; do curl -i http://localhost:8080/api/metrics/summary; done
 ```
 
+## 4.17 Provider Circuit Breakers
+
+1. Fetch circuit breaker status endpoint
+2. Confirm provider keys are present (`ALPHA_VANTAGE`, `FINNHUB`, `TWELVEDATA`, `MASSIVE`)
+3. Confirm each provider has `open`, `consecutiveFailures`, and `openForMs` fields
+
+API check:
+
+```bash
+curl http://localhost:8080/api/metrics/circuit-breakers
+```
+
 ## 5) Troubleshooting
 
 - If API changes are not visible, rebuild containers:

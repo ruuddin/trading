@@ -13,6 +13,7 @@ import jakarta.annotation.PostConstruct;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 /**
  * Multi-provider stock data fetcher with intelligent caching and fallback strategy
@@ -46,12 +47,19 @@ public class MultiProviderStockDataFetcher {
     
     @Value("${massive.api.key:}")
     private String massiveKey;
+
+    @Value("${app.circuit-breaker.provider.failure-threshold:3}")
+    private int providerFailureThreshold;
+
+    @Value("${app.circuit-breaker.provider.open-seconds:60}")
+    private int providerOpenSeconds;
     
     // In-memory cache: 5 minutes
     private static final Map<String, MemoryCachedData> memoryCache = new ConcurrentHashMap<>();
     private static final long MEMORY_CACHE_DURATION_MS = 300000; // 5 minutes
     private static final int MAX_HISTORY_POINTS = 5000;
     private static final int MOCK_DATA_POINTS = 4000;
+    private final Map<String, CircuitBreakerState> providerCircuitBreakers = new ConcurrentHashMap<>();
     
     @Autowired
     public MultiProviderStockDataFetcher(StockDataCacheRepository cacheRepository, 
@@ -74,6 +82,10 @@ public class MultiProviderStockDataFetcher {
         System.out.println("  3️⃣  Twelve Data - " + (twelveDataKey != null && !twelveDataKey.isEmpty() ? "✓ Configured" : "✗ Not configured"));
         System.out.println("  4️⃣  Massive - " + (massiveKey != null && !massiveKey.isEmpty() ? "✓ Configured" : "✗ Not configured"));
         System.out.println("  5️⃣  Mock Data (Fallback) - ✓ Always Available");
+        providerCircuitBreakers.put("ALPHA_VANTAGE", new CircuitBreakerState());
+        providerCircuitBreakers.put("FINNHUB", new CircuitBreakerState());
+        providerCircuitBreakers.put("TWELVEDATA", new CircuitBreakerState());
+        providerCircuitBreakers.put("MASSIVE", new CircuitBreakerState());
         System.out.println("=====================================================\n");
     }
     
@@ -104,28 +116,44 @@ public class MultiProviderStockDataFetcher {
             System.out.println("⓪ Cache MISS for " + symbol + " - Fetching from API providers");
             
             // Step 3: Try API providers in order
-            List<HistoricalData> data = tryAlphaVantage(symbol, interval);
+            List<HistoricalData> data = fetchWithCircuitBreaker(
+                "ALPHA_VANTAGE",
+                interval,
+                () -> tryAlphaVantage(symbol, interval)
+            );
             if (isUsableData(data, interval)) {
                 cacheData(symbol, interval, data, "ALPHA_VANTAGE");
                 System.out.println("✓ Fetched " + data.size() + " records for " + symbol + " from Alpha Vantage");
                 return data;
             }
             
-            data = tryFinnhub(symbol, interval);
+            data = fetchWithCircuitBreaker(
+                "FINNHUB",
+                interval,
+                () -> tryFinnhub(symbol, interval)
+            );
             if (isUsableData(data, interval)) {
                 cacheData(symbol, interval, data, "FINNHUB");
                 System.out.println("✓ Fetched " + data.size() + " records for " + symbol + " from Finnhub");
                 return data;
             }
             
-            data = tryTwelveData(symbol, interval);
+            data = fetchWithCircuitBreaker(
+                "TWELVEDATA",
+                interval,
+                () -> tryTwelveData(symbol, interval)
+            );
             if (isUsableData(data, interval)) {
                 cacheData(symbol, interval, data, "TWELVEDATA");
                 System.out.println("✓ Fetched " + data.size() + " records for " + symbol + " from Twelve Data");
                 return data;
             }
             
-            data = tryMassive(symbol, interval);
+            data = fetchWithCircuitBreaker(
+                "MASSIVE",
+                interval,
+                () -> tryMassive(symbol, interval)
+            );
             if (isUsableData(data, interval)) {
                 cacheData(symbol, interval, data, "MASSIVE");
                 System.out.println("✓ Fetched " + data.size() + " records for " + symbol + " from Massive");
@@ -391,6 +419,87 @@ public class MultiProviderStockDataFetcher {
         }
         return data.size() >= 2;
     }
+
+    private List<HistoricalData> fetchWithCircuitBreaker(String provider, String interval, Supplier<List<HistoricalData>> fetcher) {
+        if (!isProviderConfigured(provider) || !supportsInterval(provider, interval)) {
+            return new ArrayList<>();
+        }
+
+        CircuitBreakerState state = providerCircuitBreakers.computeIfAbsent(provider, ignored -> new CircuitBreakerState());
+        long now = System.currentTimeMillis();
+        long openDurationMs = providerOpenSeconds * 1000L;
+        synchronized (state) {
+            if (state.open && now < state.openUntilEpochMs) {
+                System.out.println("⚠ Circuit open for " + provider + " until " + new Date(state.openUntilEpochMs));
+                return new ArrayList<>();
+            }
+            if (state.open && now >= state.openUntilEpochMs) {
+                state.open = false;
+                state.consecutiveFailures = 0;
+            }
+        }
+
+        List<HistoricalData> data = fetcher.get();
+        if (data != null && !data.isEmpty()) {
+            markProviderSuccess(provider);
+            return data;
+        }
+
+        markProviderFailure(provider, openDurationMs);
+        return new ArrayList<>();
+    }
+
+    private void markProviderSuccess(String provider) {
+        CircuitBreakerState state = providerCircuitBreakers.computeIfAbsent(provider, ignored -> new CircuitBreakerState());
+        synchronized (state) {
+            state.consecutiveFailures = 0;
+            state.open = false;
+            state.openUntilEpochMs = 0L;
+        }
+    }
+
+    private void markProviderFailure(String provider, long openDurationMs) {
+        CircuitBreakerState state = providerCircuitBreakers.computeIfAbsent(provider, ignored -> new CircuitBreakerState());
+        synchronized (state) {
+            state.consecutiveFailures++;
+            if (state.consecutiveFailures >= providerFailureThreshold) {
+                state.open = true;
+                state.openUntilEpochMs = System.currentTimeMillis() + openDurationMs;
+                state.consecutiveFailures = 0;
+                System.out.println("⚠ Circuit opened for " + provider + " for " + providerOpenSeconds + "s");
+            }
+        }
+    }
+
+    private boolean isProviderConfigured(String provider) {
+        return switch (provider) {
+            case "ALPHA_VANTAGE" -> alphaVantageKey != null && !alphaVantageKey.isBlank();
+            case "FINNHUB" -> finnhubKey != null && !finnhubKey.isBlank();
+            case "TWELVEDATA" -> twelveDataKey != null && !twelveDataKey.isBlank();
+            case "MASSIVE" -> massiveKey != null && !massiveKey.isBlank();
+            default -> false;
+        };
+    }
+
+    private boolean supportsInterval(String provider, String interval) {
+        if ("FINNHUB".equals(provider)) {
+            return "daily".equals(interval);
+        }
+        return true;
+    }
+
+    public Map<String, CircuitBreakerStatus> getProviderCircuitBreakerStatus() {
+        Map<String, CircuitBreakerStatus> status = new LinkedHashMap<>();
+        long now = System.currentTimeMillis();
+        providerCircuitBreakers.forEach((provider, state) -> {
+            synchronized (state) {
+                boolean open = state.open && now < state.openUntilEpochMs;
+                long remainingMs = open ? Math.max(0L, state.openUntilEpochMs - now) : 0L;
+                status.put(provider, new CircuitBreakerStatus(open, state.consecutiveFailures, remainingMs));
+            }
+        });
+        return status;
+    }
     
     /**
      * Parse Finnhub response
@@ -555,6 +664,14 @@ public class MultiProviderStockDataFetcher {
             return System.currentTimeMillis() - timestamp > MEMORY_CACHE_DURATION_MS;
         }
     }
+
+    private static final class CircuitBreakerState {
+        private int consecutiveFailures = 0;
+        private boolean open = false;
+        private long openUntilEpochMs = 0L;
+    }
+
+    public record CircuitBreakerStatus(boolean open, int consecutiveFailures, long openForMs) {}
 
     public record HistoricalData(String timestamp, BigDecimal open, BigDecimal high, BigDecimal low, BigDecimal close) {}
 }

@@ -1,6 +1,7 @@
 package com.example.trading.controller;
 
 import com.example.trading.service.ApiUsageTracker;
+import com.example.trading.service.MultiProviderStockDataFetcher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,9 @@ public class MetricsController {
 
     @Autowired
     private ApiUsageTracker apiUsageTracker;
+
+    @Autowired
+    private MultiProviderStockDataFetcher stockDataFetcher;
 
     /**
      * Get all API provider metrics
@@ -79,6 +83,14 @@ public class MetricsController {
             allMetrics,
             LocalDateTime.now()
         ));
+    }
+
+    /**
+     * Get circuit breaker status for external quote providers
+     */
+    @GetMapping("/circuit-breakers")
+    public ResponseEntity<Map<String, MultiProviderStockDataFetcher.CircuitBreakerStatus>> getCircuitBreakerStatus() {
+        return ResponseEntity.ok(stockDataFetcher.getProviderCircuitBreakerStatus());
     }
 
     private record MetricsSummaryResponse(
