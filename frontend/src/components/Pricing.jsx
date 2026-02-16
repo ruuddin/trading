@@ -1,4 +1,5 @@
 import React from 'react'
+import DeveloperApiPanel from './DeveloperApiPanel'
 
 function PlanCard({ title, price, features, highlighted = false, isCurrentPlan = false, onSelectPlan, loading }) {
   const canUpgrade = !isCurrentPlan && typeof onSelectPlan === 'function'
@@ -150,6 +151,8 @@ export default function Pricing({ entitlement = { planTier: 'FREE', billingStatu
           <a href={checkoutResult.checkoutUrl} style={{ color: '#00d19a' }}>Open checkout URL</a>
         </p>
       ) : null}
+
+      <DeveloperApiPanel planTier={planTier} />
     </div>
   )
 }
