@@ -240,6 +240,16 @@ curl -H "Authorization: Bearer <PREMIUM_TOKEN>" \
 
 ## 4.12 Shared Watchlists (Read-Only Share)
 
+UI checks:
+
+1. Open `/shared-watchlists`
+2. In `Share Your Watchlist`, select a watchlist and share it to a valid username
+3. Confirm success message appears (`Shared with <username>`)
+4. In `Watchlists Shared With You`, verify incoming shared watchlists are listed
+5. In `Revoke Share`, enter owner watchlist id + username and confirm `Share revoked`
+
+API checks:
+
 1. Owner creates a watchlist and adds at least one symbol
 2. Owner shares it with another existing username
 3. Recipient verifies it appears in `/api/watchlists/shared`

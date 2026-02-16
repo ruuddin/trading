@@ -7,6 +7,7 @@ import ApiUsageLegend from './components/ApiUsageLegend'
 import Pricing from './components/Pricing'
 import PortfolioAnalytics from './components/PortfolioAnalytics'
 import Screener from './components/Screener'
+import SharedWatchlists from './components/SharedWatchlists'
 import { trackActivationEvent } from './services/analyticsService'
 
 export default function App() {
@@ -159,6 +160,8 @@ export default function App() {
             <Link to="/analytics">Analytics</Link>
             {' · '}
             <Link to="/screener">Screener</Link>
+            {' · '}
+            <Link to="/shared-watchlists">Shared Watchlists</Link>
           </nav>
           <div style={{ marginLeft: 'auto' }}>
             {username ? <span>Signed in as {username}</span> : <Link to="/login">Login</Link>}
@@ -213,6 +216,7 @@ export default function App() {
           <Route path="/pricing" element={<Pricing entitlement={entitlement} />} />
           <Route path="/analytics" element={<PortfolioAnalytics />} />
           <Route path="/screener" element={<Screener />} />
+          <Route path="/shared-watchlists" element={<SharedWatchlists />} />
         </Routes>
 
         <ApiUsageLegend />
