@@ -408,6 +408,16 @@ class TradingApplicationIntegrationTest {
                 .content("{\"symbol\":\"AAPL\"}"))
             .andExpect(status().isNotFound());
 
+        mockMvc.perform(put("/api/watchlists/" + watchlistId)
+                .header("Authorization", "Bearer " + viewerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Hijack\"}"))
+            .andExpect(status().isNotFound());
+
+        mockMvc.perform(delete("/api/watchlists/" + watchlistId)
+                .header("Authorization", "Bearer " + viewerToken))
+            .andExpect(status().isNotFound());
+
         mockMvc.perform(delete("/api/watchlists/" + watchlistId + "/share/share_viewer")
                 .header("Authorization", "Bearer " + ownerToken))
             .andExpect(status().isOk())

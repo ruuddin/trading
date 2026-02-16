@@ -169,6 +169,59 @@ class BackendApiEndToEndTest {
     }
 
     @Test
+    void watchlistBusinessRulesAreEnforced() throws Exception {
+        String token = registerAndLogin("api_watch_rules_user", "Pass123!");
+
+        mockMvc.perform(post("/api/watchlists")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"   \"}"))
+            .andExpect(status().isBadRequest());
+
+        long firstWatchlistId = -1L;
+        for (int i = 1; i <= 20; i++) {
+            String response = mockMvc.perform(post("/api/watchlists")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"List " + i + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+            if (i == 1) {
+                firstWatchlistId = objectMapper.readTree(response).path("id").asLong();
+            }
+        }
+
+        mockMvc.perform(post("/api/watchlists")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"List 21\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$").value("Maximum 20 watchlists allowed per user"));
+
+        mockMvc.perform(post("/api/watchlists/" + firstWatchlistId + "/symbols")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"symbol\":\"AAPL\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.symbols", hasSize(1)));
+
+        mockMvc.perform(post("/api/watchlists/" + firstWatchlistId + "/symbols")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"symbol\":\"AAPL\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$").value("Symbol already in watchlist"));
+
+        mockMvc.perform(post("/api/watchlists/" + firstWatchlistId + "/symbols")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"symbol\":\"   \"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$").value("Symbol is required"));
+    }
+
+    @Test
     void buyAndSellOrdersUpdatePortfolioQuantity() throws Exception {
         String token = registerAndLogin("api_order_user", "Pass123!");
         stockRepository.save(new Stock("MSFT", "Microsoft", new BigDecimal("210.00")));

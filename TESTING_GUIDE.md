@@ -97,6 +97,12 @@ curl -X POST http://localhost:8080/api/auth/login \
 2. Add symbols (`AAPL`, `MSFT`, `TSLA`)
 3. Rename watchlist, sort by `Price`, remove a symbol
 4. Delete watchlist and confirm switch behavior
+5. Validate rule enforcement:
+  - blank watchlist name returns validation error
+  - more than 20 watchlists per user is rejected
+  - duplicate symbol in same watchlist is rejected
+  - blank symbol input is rejected
+  - shared watchlist recipient cannot add/rename/delete owner watchlist
 
 API checks (authenticated):
 

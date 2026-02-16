@@ -15,6 +15,7 @@ describe('Watchlist', () => {
   }
 
   beforeEach(() => {
+    window.alert = vi.fn()
     global.fetch = vi.fn(async (url) => {
       if (String(url).includes('/api/stocks/MSFT/price')) {
         return { ok: true, json: async () => ({ price: 474.24, source: 'REFERENCE' }) }
@@ -61,5 +62,35 @@ describe('Watchlist', () => {
 
     fireEvent.click(screen.getByText('AAPL'))
     expect(onSelectSymbol).toHaveBeenCalledWith('AAPL')
+  })
+
+  it('shows inline error when add symbol fails with duplicate message', async () => {
+    const onWatchlistUpdated = vi.fn()
+    global.fetch = vi.fn(async (url, options) => {
+      if (String(url).includes('/api/stocks/MSFT/price')) {
+        return { ok: true, json: async () => ({ price: 474.24, source: 'REFERENCE' }) }
+      }
+      if (String(url).includes('/api/stocks/AAPL/price')) {
+        return { ok: true, json: async () => ({ price: 286.36, source: 'LIVE' }) }
+      }
+      if (String(url).includes('/api/watchlists/1/symbols') && options?.method === 'POST') {
+        return { ok: false, text: async () => 'Symbol already in watchlist' }
+      }
+      return { ok: true, json: async () => ({}) }
+    })
+
+    render(<Watchlist {...baseProps} onWatchlistUpdated={onWatchlistUpdated} />)
+
+    fireEvent.click(screen.getByLabelText('Add symbol'))
+    fireEvent.change(screen.getByPlaceholderText('Stock symbol (e.g., AAPL, MSFT)'), {
+      target: { value: 'MSFT' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Symbol already in watchlist')).toBeInTheDocument()
+    })
+
+    expect(onWatchlistUpdated).not.toHaveBeenCalled()
   })
 })
