@@ -3,6 +3,14 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import StockDetail, { filterChartDataByInterval } from './StockDetail'
 
+function deferred() {
+  let resolve
+  const promise = new Promise((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 describe('StockDetail', () => {
   beforeEach(() => {
     const generatedData = Array.from({ length: 60 }, (_, index) => {
@@ -106,5 +114,73 @@ describe('StockDetail', () => {
     await waitFor(() => {
       expect(screen.getByTestId('interval-state')).toHaveTextContent('1Y:60')
     })
+  })
+
+  it('ignores stale live-price response after symbol switch', async () => {
+    const historyData = Array.from({ length: 10 }, (_, index) => ({
+      timestamp: `2020-01-${String(index + 1).padStart(2, '0')}`,
+      open: 100 + index,
+      high: 101 + index,
+      low: 99 + index,
+      close: 100 + index
+    }))
+
+    const aaplPrice = deferred()
+    const msftPrice = deferred()
+
+    global.fetch = vi.fn((url) => {
+      const req = String(url)
+      if (req.includes('/api/stocks/AAPL/price')) {
+        return aaplPrice.promise
+      }
+      if (req.includes('/api/stocks/MSFT/price')) {
+        return msftPrice.promise
+      }
+      if (req.includes('/history')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ symbol: 'X', interval: 'daily', data: historyData })
+        })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <StockDetail symbolOverride="AAPL" />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'AAPL' })).toBeInTheDocument()
+    })
+
+    rerender(
+      <MemoryRouter>
+        <StockDetail symbolOverride="MSFT" />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'MSFT' })).toBeInTheDocument()
+    })
+
+    msftPrice.resolve({
+      ok: true,
+      json: async () => ({ symbol: 'MSFT', price: 222.22, source: 'LIVE' })
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('$222.22')).toBeInTheDocument()
+    })
+
+    aaplPrice.resolve({
+      ok: true,
+      json: async () => ({ symbol: 'AAPL', price: 111.11, source: 'LIVE' })
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.queryByText('$111.11')).not.toBeInTheDocument()
+    expect(screen.getByText('$222.22')).toBeInTheDocument()
   })
 })

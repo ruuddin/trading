@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, Customized, Cell } from 'recharts';
 import { getLogoUrl, getInitialsBadge } from '../services/logoService';
@@ -157,17 +157,28 @@ export default function StockDetail({ symbolOverride = null, planTier = 'FREE' }
   const [loading, setLoading] = useState(false);
   const [ohlcData, setOhlcData] = useState(null);
   const [chartType, setChartType] = useState('mountain');
+  const activeSymbolRef = useRef(activeSymbol);
+  const latestHistoryRequestRef = useRef('');
+
+  useEffect(() => {
+    activeSymbolRef.current = activeSymbol;
+  }, [activeSymbol]);
 
   const fetchLivePrice = async (sym) => {
     try {
-      const response = await fetch(`/api/stocks/${sym}/price`);
+      const normalizedSymbol = String(sym || '').trim().toUpperCase();
+      const response = await fetch(`/api/stocks/${normalizedSymbol}/price`);
       if (!response.ok) {
         return;
       }
       const data = await response.json();
       const livePrice = Number(data?.price);
       if (Number.isFinite(livePrice) && livePrice > 0) {
-        setStock(prev => prev ? { ...prev, price: livePrice } : prev);
+        setStock((prev) => {
+          if (!prev) return prev;
+          if (prev.symbol !== normalizedSymbol) return prev;
+          return { ...prev, price: livePrice };
+        });
       }
     } catch (err) {
       console.error('Error fetching live price:', err);
@@ -226,6 +237,10 @@ export default function StockDetail({ symbolOverride = null, planTier = 'FREE' }
   
   // Fetch historical data from backend with caching
   const fetchHistoricalData = async (sym, intervalValue) => {
+    const normalizedSymbol = String(sym || '').trim().toUpperCase();
+    const requestKey = `${normalizedSymbol}|${intervalValue}|${Date.now()}|${Math.random()}`;
+    latestHistoryRequestRef.current = requestKey;
+
     try {
       setLoading(true);
 
@@ -233,7 +248,7 @@ export default function StockDetail({ symbolOverride = null, planTier = 'FREE' }
       const apiInterval = selected.apiInterval;
       
       // Check cache first
-      const cacheKey = `stock_data_v2_${sym}_${apiInterval}`;
+      const cacheKey = `stock_data_v2_${normalizedSymbol}_${apiInterval}`;
       const cachedData = localStorage.getItem(cacheKey);
       
       let result;
@@ -243,13 +258,13 @@ export default function StockDetail({ symbolOverride = null, planTier = 'FREE' }
         const cachedSeries = Array.isArray(parsed?.data) ? parsed.data : [];
         if (apiInterval === 'daily' && cachedSeries.length < 30) {
           localStorage.removeItem(cacheKey);
-          const response = await fetch(`/api/stocks/${sym}/history?interval=${apiInterval}`);
+          const response = await fetch(`/api/stocks/${normalizedSymbol}/history?interval=${apiInterval}`);
           result = await response.json();
         } else {
           result = parsed;
         }
       } else {
-        const response = await fetch(`/api/stocks/${sym}/history?interval=${apiInterval}`);
+        const response = await fetch(`/api/stocks/${normalizedSymbol}/history?interval=${apiInterval}`);
         result = await response.json();
         
         // Cache the result if it has data
@@ -268,17 +283,26 @@ export default function StockDetail({ symbolOverride = null, planTier = 'FREE' }
         volume: buildSyntheticVolume(item.timestamp, idx, parseFloat(item.close), parseFloat(item.open))
       })).reverse(); // Reverse to show oldest first
 
+      if (latestHistoryRequestRef.current !== requestKey || activeSymbolRef.current !== normalizedSymbol) {
+        return;
+      }
+
       setBaseSeries(formatted);
       setBaseSeriesApiInterval(apiInterval);
       applyIntervalData(formatted, intervalValue);
     } catch (err) {
+      if (latestHistoryRequestRef.current !== requestKey || activeSymbolRef.current !== normalizedSymbol) {
+        return;
+      }
       console.error('Error fetching data:', err);
       setChartData([]);
       setBaseSeries([]);
       setBaseSeriesApiInterval(null);
       setOhlcData(null);
     } finally {
-      setLoading(false);
+      if (latestHistoryRequestRef.current === requestKey) {
+        setLoading(false);
+      }
     }
   };
   
