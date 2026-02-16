@@ -8,6 +8,9 @@ import Pricing from './components/Pricing'
 import PortfolioAnalytics from './components/PortfolioAnalytics'
 import Screener from './components/Screener'
 import SharedWatchlists from './components/SharedWatchlists'
+import TermsPage from './components/TermsPage'
+import PrivacyPage from './components/PrivacyPage'
+import RiskDisclosurePage from './components/RiskDisclosurePage'
 import { trackActivationEvent } from './services/analyticsService'
 
 export default function App() {
@@ -162,6 +165,12 @@ export default function App() {
             <Link to="/screener">Screener</Link>
             {' · '}
             <Link to="/shared-watchlists">Shared Watchlists</Link>
+            {' · '}
+            <Link to="/terms">Terms</Link>
+            {' · '}
+            <Link to="/privacy">Privacy</Link>
+            {' · '}
+            <Link to="/risk-disclosure">Risk</Link>
           </nav>
           <div style={{ marginLeft: 'auto' }}>
             {username ? <span>Signed in as {username}</span> : <Link to="/login">Login</Link>}
@@ -217,6 +226,9 @@ export default function App() {
           <Route path="/analytics" element={<PortfolioAnalytics />} />
           <Route path="/screener" element={<Screener />} />
           <Route path="/shared-watchlists" element={<SharedWatchlists />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/risk-disclosure" element={<RiskDisclosurePage />} />
         </Routes>
 
         <ApiUsageLegend />

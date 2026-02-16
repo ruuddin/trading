@@ -2,6 +2,32 @@
 
 This guide covers how to verify all major shipped features (auth, watchlists, trading, billing, alerts, realtime quotes, analytics, and screener APIs).
 
+## 0) Release Gate (Required Before Every Push)
+
+Run all regression suites and only push when all pass:
+
+```bash
+# Backend
+cd backend
+export JAVA_HOME=/Users/riazuddin/.sdkman/candidates/java/25.0.1-amzn
+export PATH="$JAVA_HOME/bin:$PATH"
+mvn test
+
+# Frontend unit/integration
+cd ../frontend
+npm test -- --run
+
+# Frontend E2E
+npx playwright test
+```
+
+Refresh app services after merges or dependency/config changes:
+
+```bash
+cd ..
+docker compose up -d --build
+```
+
 ## 1) Prerequisites
 
 - Docker + Docker Compose available
@@ -346,6 +372,12 @@ API check:
 ```bash
 curl http://localhost:8080/api/metrics/circuit-breakers
 ```
+
+## 4.18 Legal and Risk Pages
+
+1. Open `/terms` and confirm Terms of Service content is rendered
+2. Open `/privacy` and confirm Privacy Policy content is rendered
+3. Open `/risk-disclosure` and confirm Risk Disclosure content is rendered
 
 ## 5) Troubleshooting
 

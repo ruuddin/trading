@@ -107,6 +107,23 @@ Detailed architecture and file-level documentation is available in:
 - [CODE_DOCUMENTATION.md](CODE_DOCUMENTATION.md)
 - [TESTING_GUIDE.md](TESTING_GUIDE.md)
 - [COMMERCIALIZATION_BACKLOG.md](COMMERCIALIZATION_BACKLOG.md)
+- [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md)
+- [INCIDENT_RUNBOOK.md](INCIDENT_RUNBOOK.md)
+
+## Commercial Readiness Diagram
+
+```mermaid
+flowchart LR
+	U[User Browser] --> FE[Frontend React App]
+	FE --> BE[Spring Boot API]
+	BE --> AUTH[JWT + 2FA + Session Revoke]
+	BE --> AUDIT[Audit Log API]
+	BE --> RL[Public Route Rate Limiter]
+	BE --> CB[Provider Circuit Breakers]
+	BE --> DB[(MariaDB/H2)]
+	BE --> EXT[Quote Providers]
+	BE --> METRICS[/api/metrics/summary\n/api/metrics/circuit-breakers]
+```
 
 ## Sequence Diagrams (All Major Use Cases)
 
