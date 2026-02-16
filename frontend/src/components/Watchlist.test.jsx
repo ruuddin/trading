@@ -93,4 +93,39 @@ describe('Watchlist', () => {
 
     expect(onWatchlistUpdated).not.toHaveBeenCalled()
   })
+
+  it('adds IREN symbol and renders it in the watchlist', async () => {
+    const onWatchlistUpdated = vi.fn()
+
+    global.fetch = vi.fn(async (url, options) => {
+      const req = String(url)
+      if (req.includes('/api/stocks/MSFT/price')) {
+        return { ok: true, json: async () => ({ price: 474.24, source: 'REFERENCE' }) }
+      }
+      if (req.includes('/api/stocks/AAPL/price')) {
+        return { ok: true, json: async () => ({ price: 286.36, source: 'LIVE' }) }
+      }
+      if (req.includes('/api/watchlists/1/symbols') && options?.method === 'POST') {
+        return {
+          ok: true,
+          json: async () => ({ id: 1, name: 'Main', symbols: ['MSFT', 'AAPL', 'IREN'] })
+        }
+      }
+      return { ok: true, json: async () => ({}) }
+    })
+
+    render(<Watchlist {...baseProps} onWatchlistUpdated={onWatchlistUpdated} />)
+
+    fireEvent.click(screen.getByLabelText('Add symbol'))
+    fireEvent.change(screen.getByPlaceholderText('Stock symbol (e.g., AAPL, MSFT)'), {
+      target: { value: 'IREN' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => {
+      expect(onWatchlistUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({ symbols: ['MSFT', 'AAPL', 'IREN'] })
+      )
+    })
+  })
 })

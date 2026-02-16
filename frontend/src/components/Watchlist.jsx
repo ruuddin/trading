@@ -168,29 +168,42 @@ export default function Watchlist({
     if (!newSymbol.trim() || !selectedWatchlist) return
 
     try {
+      const requestedSymbol = newSymbol.trim().toUpperCase()
       const response = await fetch(`/api/watchlists/${selectedWatchlist.id}/symbols`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({ symbol: newSymbol.trim().toUpperCase() })
+        body: JSON.stringify({ symbol: requestedSymbol })
       })
 
       if (response.ok) {
-        const data = await response.json()
-        onWatchlistUpdated(data)
-        setNewSymbol('')
-        setShowAddSymbolModal(false)
-        setErrorMessage('')
+        let data = await response.json()
+
+        if (!Array.isArray(data?.symbols) || !data.symbols.includes(requestedSymbol)) {
+          const refresh = await fetch(`/api/watchlists/${selectedWatchlist.id}`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          })
+          if (refresh.ok) {
+            data = await refresh.json()
+          }
+        }
+
+        if (Array.isArray(data?.symbols) && data.symbols.includes(requestedSymbol)) {
+          onWatchlistUpdated(data)
+          setNewSymbol('')
+          setShowAddSymbolModal(false)
+          setErrorMessage('')
+        } else {
+          setErrorMessage(`Symbol ${requestedSymbol} was not persisted. Please retry.`)
+        }
       } else {
         const error = await response.text()
         setErrorMessage(error)
-        alert('Error: ' + error)
       }
     } catch (err) {
       setErrorMessage(err.message)
-      alert('Failed to add symbol: ' + err.message)
     }
   }
 
