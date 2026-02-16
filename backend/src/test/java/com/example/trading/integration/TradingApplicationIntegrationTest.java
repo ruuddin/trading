@@ -138,6 +138,15 @@ class TradingApplicationIntegrationTest {
             .andExpect(jsonPath("$.FINNHUB.open").isBoolean())
             .andExpect(jsonPath("$.TWELVEDATA.open").isBoolean())
             .andExpect(jsonPath("$.MASSIVE.open").isBoolean());
+
+        mockMvc.perform(get("/api/metrics/dashboard"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("UP"))
+            .andExpect(jsonPath("$.uptimeMs").isNumber())
+            .andExpect(jsonPath("$.providerCount").isNumber())
+            .andExpect(jsonPath("$.openCircuitBreakers").isNumber())
+            .andExpect(jsonPath("$.rateLimitedProviders").isMap())
+            .andExpect(jsonPath("$.circuitBreakers.ALPHA_VANTAGE.open").isBoolean());
     }
 
     @Test

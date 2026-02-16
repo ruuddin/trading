@@ -373,7 +373,19 @@ API check:
 curl http://localhost:8080/api/metrics/circuit-breakers
 ```
 
-## 4.18 Legal and Risk Pages
+## 4.18 Status Dashboard Endpoint
+
+1. Call `/api/metrics/dashboard`
+2. Confirm response includes `status=UP`, `uptimeMs`, `providerCount`, and `openCircuitBreakers`
+3. Confirm nested maps are present: `rateLimitedProviders` and `circuitBreakers`
+
+API check:
+
+```bash
+curl http://localhost:8080/api/metrics/dashboard
+```
+
+## 4.19 Legal and Risk Pages
 
 1. Open `/terms` and confirm Terms of Service content is rendered
 2. Open `/privacy` and confirm Privacy Policy content is rendered

@@ -217,6 +217,10 @@ class BackendApiEndToEndTest {
         mockMvc.perform(get("/api/metrics/summary"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.providers").exists());
+
+        mockMvc.perform(get("/api/metrics/dashboard"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("UP"));
     }
 
     private String registerAndLogin(String username, String password) throws Exception {

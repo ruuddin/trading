@@ -15,6 +15,7 @@ This runbook covers triage and response for production incidents in the trading 
 3. Check service status and metrics:
    - `GET /api/metrics/summary`
    - `GET /api/metrics/circuit-breakers`
+  - `GET /api/metrics/dashboard`
 4. Determine blast radius:
    - auth/login
    - watchlists/trading endpoints
@@ -37,8 +38,27 @@ This runbook covers triage and response for production incidents in the trading 
 - Inspect backend logs for error bursts and stack traces
 - Validate database health and connection pool saturation
 - Validate API provider usage and rate-limit state
+- Validate consolidated dashboard state (`status`, `openCircuitBreakers`, `rateLimitedProviders`)
 - Confirm frontend reaches expected backend routes
 - Verify latest deployment/rollback status
+
+## 3.1 Incident response flow
+
+```mermaid
+flowchart TD
+  A[Alert Triggered] --> B[Run /api/metrics/dashboard]
+  B --> C{status == UP?}
+  C -- No --> D[Check backend container health and logs]
+  C -- Yes --> E{openCircuitBreakers > 0?}
+  E -- Yes --> F[Investigate provider failures and fallback quality]
+  E -- No --> G{rateLimitedProviders has true?}
+  G -- Yes --> H[Assess traffic spike / abuse and tune rate limits]
+  G -- No --> I[Inspect auth, DB, and downstream dependencies]
+  D --> J[Mitigate + verify endpoints]
+  F --> J
+  H --> J
+  I --> J
+```
 
 ## 4. Communication
 

@@ -6,7 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.lang.management.ManagementFactory;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -17,6 +20,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequestMapping("/api/metrics")
 @CrossOrigin(origins = "*")
 public class MetricsController {
+
+    private final Instant startedAt = Instant.now();
 
     @Autowired
     private ApiUsageTracker apiUsageTracker;
@@ -93,12 +98,49 @@ public class MetricsController {
         return ResponseEntity.ok(stockDataFetcher.getProviderCircuitBreakerStatus());
     }
 
+    /**
+     * Consolidated dashboard status for operations
+     */
+    @GetMapping("/dashboard")
+    public ResponseEntity<DashboardStatusResponse> getDashboardStatus() {
+        var allMetrics = apiUsageTracker.getAllMetrics();
+        var rateLimited = new LinkedHashMap<String, Boolean>();
+        allMetrics.forEach((provider, metric) -> rateLimited.put(provider, metric.rateLimited()));
+
+        var circuitBreakers = stockDataFetcher.getProviderCircuitBreakerStatus();
+        long openCircuitCount = circuitBreakers.values().stream().filter(MultiProviderStockDataFetcher.CircuitBreakerStatus::open).count();
+
+        long uptimeMs = Math.max(0L, ManagementFactory.getRuntimeMXBean().getUptime());
+
+        return ResponseEntity.ok(new DashboardStatusResponse(
+            "UP",
+            startedAt,
+            uptimeMs,
+            allMetrics.size(),
+            (int) openCircuitCount,
+            rateLimited,
+            circuitBreakers,
+            LocalDateTime.now()
+        ));
+    }
+
     private record MetricsSummaryResponse(
         int totalRequests,
         int totalDailyLimit,
         String averageUsagePercent,
         int providersRateLimited,
         ConcurrentHashMap<String, ApiUsageTracker.ApiUsageDto> providers,
+        LocalDateTime timestamp
+    ) {}
+
+    private record DashboardStatusResponse(
+        String status,
+        Instant startedAt,
+        long uptimeMs,
+        int providerCount,
+        int openCircuitBreakers,
+        Map<String, Boolean> rateLimitedProviders,
+        Map<String, MultiProviderStockDataFetcher.CircuitBreakerStatus> circuitBreakers,
         LocalDateTime timestamp
     ) {}
 }

@@ -110,6 +110,11 @@ Detailed architecture and file-level documentation is available in:
 - [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md)
 - [INCIDENT_RUNBOOK.md](INCIDENT_RUNBOOK.md)
 
+Operational metrics endpoints:
+- `/api/metrics/summary`
+- `/api/metrics/circuit-breakers`
+- `/api/metrics/dashboard`
+
 ## Commercial Readiness Diagram
 
 ```mermaid
